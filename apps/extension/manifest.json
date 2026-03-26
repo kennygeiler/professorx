@@ -9,15 +9,15 @@
   "content_scripts": [
     {
       "matches": ["https://x.com/*", "https://twitter.com/*"],
+      "js": ["dist/injected.js"],
+      "run_at": "document_start",
+      "world": "MAIN"
+    },
+    {
+      "matches": ["https://x.com/*", "https://twitter.com/*"],
       "js": ["dist/content.js"],
       "run_at": "document_start"
     }
   ],
-  "action": { "default_popup": "src/popup/popup.html" },
-  "web_accessible_resources": [
-    {
-      "resources": ["dist/injected.js"],
-      "matches": ["https://x.com/*", "https://twitter.com/*"]
-    }
-  ]
+  "action": { "default_popup": "src/popup/popup.html" }
 }
