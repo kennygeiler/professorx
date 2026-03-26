@@ -4,19 +4,63 @@ interface TweetMediaProps {
   media: TweetMediaType[];
 }
 
+function MediaItem({
+  item,
+  className = "",
+  style,
+}: {
+  item: TweetMediaType;
+  className?: string;
+  style?: React.CSSProperties;
+}) {
+  if (item.type === "video" && item.video_url) {
+    return (
+      <video
+        src={item.video_url}
+        poster={item.preview_url ?? item.url}
+        controls
+        playsInline
+        preload="none"
+        className={`w-full object-cover ${className}`}
+        style={style}
+      />
+    );
+  }
+
+  if (item.type === "animated_gif" && item.video_url) {
+    return (
+      <video
+        src={item.video_url}
+        poster={item.preview_url ?? item.url}
+        autoPlay
+        loop
+        muted
+        playsInline
+        className={`w-full object-cover ${className}`}
+        style={style}
+      />
+    );
+  }
+
+  // Photo or fallback (no video_url available)
+  return (
+    <img
+      src={item.preview_url ?? item.url}
+      alt=""
+      className={`w-full object-cover ${className}`}
+      style={style}
+      loading="lazy"
+    />
+  );
+}
+
 export function TweetMedia({ media }: TweetMediaProps) {
   if (media.length === 0) return null;
 
   if (media.length === 1) {
     return (
       <div className="overflow-hidden rounded-xl border border-zinc-800">
-        <img
-          src={media[0].preview_url ?? media[0].url}
-          alt=""
-          className="w-full object-cover"
-          style={{ maxHeight: 320 }}
-          loading="lazy"
-        />
+        <MediaItem item={media[0]} style={{ maxHeight: 320 }} />
       </div>
     );
   }
@@ -25,12 +69,10 @@ export function TweetMedia({ media }: TweetMediaProps) {
     return (
       <div className="grid grid-cols-2 gap-0.5 overflow-hidden rounded-xl border border-zinc-800">
         {media.map((m, i) => (
-          <img
+          <MediaItem
             key={i}
-            src={m.preview_url ?? m.url}
-            alt=""
-            className="aspect-square w-full object-cover"
-            loading="lazy"
+            item={m}
+            className="aspect-square"
           />
         ))}
       </div>
@@ -41,12 +83,10 @@ export function TweetMedia({ media }: TweetMediaProps) {
   return (
     <div className="grid grid-cols-2 gap-0.5 overflow-hidden rounded-xl border border-zinc-800">
       {media.slice(0, 4).map((m, i) => (
-        <img
+        <MediaItem
           key={i}
-          src={m.preview_url ?? m.url}
-          alt=""
-          className="aspect-square w-full object-cover"
-          loading="lazy"
+          item={m}
+          className="aspect-square"
         />
       ))}
     </div>

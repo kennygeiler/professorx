@@ -30,7 +30,11 @@ export function Header() {
 
         if (!res.ok) {
           const errData = await res.json();
-          setSyncResult(`Error: ${errData.error}`);
+          if (res.status === 401) {
+            setSyncResult("SESSION_EXPIRED");
+          } else {
+            setSyncResult(`Error: ${errData.error}`);
+          }
           setSyncing(false);
           return;
         }
@@ -117,9 +121,21 @@ export function Header() {
       </div>
 
       {syncResult && (
-        <p className={`pb-2 text-xs ${syncResult.startsWith("Error") ? "text-red-400" : "text-emerald-400"}`}>
-          {syncResult}
-        </p>
+        syncResult === "SESSION_EXPIRED" ? (
+          <div className="flex items-center gap-2 pb-2 text-xs text-red-400">
+            <span>Session expired.</span>
+            <a
+              href="/login"
+              className="font-medium text-red-300 underline underline-offset-2 hover:text-red-200"
+            >
+              Log in again
+            </a>
+          </div>
+        ) : (
+          <p className={`pb-2 text-xs ${syncResult.startsWith("Error") ? "text-red-400" : "text-emerald-400"}`}>
+            {syncResult}
+          </p>
+        )
       )}
     </header>
   );

@@ -39,6 +39,12 @@ interface TwitterUser {
   profile_image_url?: string;
 }
 
+interface TwitterMediaVariant {
+  bit_rate?: number;
+  content_type: string;
+  url: string;
+}
+
 interface TwitterMedia {
   media_key: string;
   type: "photo" | "video" | "animated_gif";
@@ -46,6 +52,7 @@ interface TwitterMedia {
   preview_image_url?: string;
   width?: number;
   height?: number;
+  variants?: TwitterMediaVariant[];
 }
 
 interface TwitterApiResponse {
@@ -63,7 +70,7 @@ interface TwitterApiResponse {
 const TWEET_FIELDS = "created_at,public_metrics,attachments,referenced_tweets,entities";
 const EXPANSIONS = "author_id,attachments.media_keys";
 const USER_FIELDS = "name,username,profile_image_url";
-const MEDIA_FIELDS = "type,url,preview_image_url,width,height";
+const MEDIA_FIELDS = "type,url,preview_image_url,width,height,variants";
 
 async function twitterGet(
   path: string,
@@ -84,6 +91,9 @@ async function twitterGet(
   if (!res.ok) {
     const errorBody = await res.text();
     console.error(`[Twitter API] ${res.status}: ${errorBody}`);
+    if (res.status === 401 || res.status === 403) {
+      throw new Error(`TOKEN_EXPIRED: Your Twitter session has expired. Please log out and log back in.`);
+    }
     throw new Error(`Twitter API error: ${res.status} - ${errorBody}`);
   }
 
@@ -151,6 +161,7 @@ export interface NormalizedTweet {
     type: "photo" | "video" | "animated_gif";
     url: string;
     preview_url?: string;
+    video_url?: string;
     width?: number;
     height?: number;
   }>;
@@ -185,13 +196,25 @@ function normalizeTweets(response: TwitterApiResponse): NormalizedTweet[] {
     const media = (tweet.attachments?.media_keys ?? [])
       .map((key) => mediaMap.get(key))
       .filter((m): m is TwitterMedia => !!m)
-      .map((m) => ({
-        type: m.type,
-        url: m.url ?? m.preview_image_url ?? "",
-        preview_url: m.preview_image_url,
-        width: m.width,
-        height: m.height,
-      }));
+      .map((m) => {
+        // For videos/gifs, pick the highest-bitrate mp4 variant
+        let videoUrl: string | undefined;
+        if ((m.type === "video" || m.type === "animated_gif") && m.variants?.length) {
+          const mp4s = m.variants
+            .filter((v) => v.content_type === "video/mp4")
+            .sort((a, b) => (b.bit_rate ?? 0) - (a.bit_rate ?? 0));
+          videoUrl = mp4s[0]?.url;
+        }
+
+        return {
+          type: m.type,
+          url: m.url ?? m.preview_image_url ?? "",
+          preview_url: m.preview_image_url,
+          video_url: videoUrl,
+          width: m.width,
+          height: m.height,
+        };
+      });
 
     // Determine tweet type
     let tweetType = "tweet";

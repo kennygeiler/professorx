@@ -111,6 +111,7 @@ export interface TweetMedia {
   type: "photo" | "video" | "animated_gif";
   url: string;
   preview_url?: string;
+  video_url?: string;
   width?: number;
   height?: number;
 }

@@ -85,6 +85,12 @@ export async function POST(request: Request) {
     });
   } catch (e) {
     const errorMsg = e instanceof Error ? e.message : String(e);
+    if (errorMsg.startsWith("TOKEN_EXPIRED:")) {
+      return NextResponse.json(
+        { error: errorMsg.replace("TOKEN_EXPIRED: ", "") },
+        { status: 401 }
+      );
+    }
     return NextResponse.json(
       { error: `Sync failed: ${errorMsg}` },
       { status: 500 }

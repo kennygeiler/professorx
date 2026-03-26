@@ -38,11 +38,20 @@ export function CategoryChips({
             key={cat.id}
             type="button"
             onClick={() => onSelect(isActive ? null : cat.id)}
-            className={`inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 text-sm font-medium transition-colors ${
+            className={`inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 text-sm font-medium transition-all ${
               isActive
-                ? "bg-zinc-100 text-zinc-900"
+                ? ""
                 : "bg-zinc-800 text-zinc-400 hover:bg-zinc-700 hover:text-zinc-300"
             }`}
+            style={
+              isActive
+                ? {
+                    backgroundColor: `${cat.color}25`,
+                    color: cat.color,
+                    border: `1px solid ${cat.color}50`,
+                  }
+                : undefined
+            }
           >
             <span
               className="inline-block h-2 w-2 rounded-full"
@@ -50,7 +59,8 @@ export function CategoryChips({
             />
             {cat.name}
             <span
-              className={`text-xs ${isActive ? "text-zinc-600" : "text-zinc-500"}`}
+              className="text-xs"
+              style={isActive ? { color: `${cat.color}90` } : { color: "#71717a" }}
             >
               {cat.tweet_count}
             </span>

@@ -141,6 +141,42 @@ export function LibraryView({ initialTweets, initialCursor }: LibraryViewProps) 
     []
   );
 
+  const [refreshing, setRefreshing] = useState(false);
+
+  const softRefresh = useCallback(async () => {
+    setRefreshing(true);
+    try {
+      // Re-fetch categories
+      const catRes = await fetch("/api/categories");
+      if (catRes.ok) {
+        const catData = await catRes.json();
+        setCategories(catData.categories ?? []);
+      }
+      // Re-fetch uncategorized count
+      const remRes = await fetch("/api/categorize/remaining");
+      if (remRes.ok) {
+        const remData = await remRes.json();
+        setUncategorizedRemaining(remData.remaining ?? 0);
+      }
+      // Re-fetch tweets
+      const params = new URLSearchParams({ limit: "40" });
+      if (debouncedQuery.length >= 3) params.set("q", debouncedQuery);
+      if (category) params.set("category", category);
+      if (timeRange !== "all") params.set("timeRange", timeRange);
+      const endpoint = hasFilters ? "/api/tweets/search" : "/api/tweets";
+      const tweetsRes = await fetch(`${endpoint}?${params.toString()}`);
+      if (tweetsRes.ok) {
+        const tweetsData = await tweetsRes.json();
+        setTweets(tweetsData.tweets ?? []);
+        setCursor(tweetsData.nextCursor ?? null);
+      }
+    } catch {
+      // Silently handle
+    } finally {
+      setRefreshing(false);
+    }
+  }, [debouncedQuery, category, timeRange, hasFilters]);
+
   const runCategorization = async () => {
     setCategorizing(true);
     setCatProgress("Starting AI categorization...");
@@ -180,9 +216,9 @@ export function LibraryView({ initialTweets, initialCursor }: LibraryViewProps) 
         setCategories(catData.categories ?? []);
       }
 
-      // Refresh tweets to show category badges
+      // Soft refresh tweets to show updated category badges
       if (totalCategorized > 0) {
-        setTimeout(() => window.location.reload(), 1500);
+        setTimeout(() => softRefresh(), 1000);
       }
     } catch {
       setCatProgress("Categorization failed. Try again.");
@@ -196,7 +232,27 @@ export function LibraryView({ initialTweets, initialCursor }: LibraryViewProps) 
       {/* Filter bar */}
       <div className="sticky top-0 z-10 bg-zinc-950/95 pb-4 pt-2 backdrop-blur">
         <div className="flex flex-col gap-3">
-          <SearchBar value={query} onChange={setQuery} />
+          <div className="flex items-center gap-2">
+            <div className="flex-1">
+              <SearchBar value={query} onChange={setQuery} />
+            </div>
+            <button
+              onClick={softRefresh}
+              disabled={refreshing}
+              className="shrink-0 rounded-lg p-2 text-zinc-400 transition-colors hover:bg-zinc-800 hover:text-zinc-100 disabled:opacity-50"
+              title="Refresh"
+            >
+              <svg
+                className={`h-4 w-4 ${refreshing ? "animate-spin" : ""}`}
+                fill="none"
+                viewBox="0 0 24 24"
+                stroke="currentColor"
+                strokeWidth={2}
+              >
+                <path strokeLinecap="round" strokeLinejoin="round" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+              </svg>
+            </button>
+          </div>
 
           {categories.length > 0 && (
             <div className="flex items-start gap-2">
