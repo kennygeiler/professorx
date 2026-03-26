@@ -63,10 +63,17 @@ export default function SettingsPage() {
   const [bookmarksSync, setBookmarksSync] = useState(false);
   const [tokenCopied, setTokenCopied] = useState(false);
 
-  const handleCopyToken = () => {
-    navigator.clipboard.writeText("your-extension-token-here");
-    setTokenCopied(true);
-    setTimeout(() => setTokenCopied(false), 2000);
+  const handleCopyToken = async () => {
+    try {
+      const res = await fetch("/api/auth/extension-token");
+      if (!res.ok) throw new Error("Failed to get token");
+      const { token } = await res.json();
+      await navigator.clipboard.writeText(token);
+      setTokenCopied(true);
+      setTimeout(() => setTokenCopied(false), 2000);
+    } catch {
+      alert("Failed to generate token. Make sure you're logged in.");
+    }
   };
 
   return (
