@@ -21,11 +21,11 @@ export function EmptyState() {
     try {
       // Fetch one page at a time to stay within Vercel timeout
       do {
-        const body = nextToken ? JSON.stringify({ paginationToken: nextToken }) : "{}";
+        const reqBody: string = nextToken ? JSON.stringify({ paginationToken: nextToken }) : "{}";
         const res = await fetch("/api/sync", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body,
+          body: reqBody,
         });
 
         if (!res.ok) {
