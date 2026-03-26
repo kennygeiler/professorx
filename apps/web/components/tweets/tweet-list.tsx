@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
+import { useSearchParams } from "next/navigation";
 import type { TweetWithCategories } from "@/app/page";
 import { TweetCard } from "./tweet-card";
 import { TweetSkeleton } from "./tweet-skeleton";
@@ -11,32 +12,79 @@ interface TweetListProps {
 }
 
 export function TweetList({ initialTweets, initialCursor }: TweetListProps) {
+  const searchParams = useSearchParams();
+  const q = searchParams.get("q") ?? "";
+  const category = searchParams.get("category") ?? "";
+  const timeRange = searchParams.get("timeRange") ?? "all";
+
+  const hasFilters = q.length >= 3 || category || timeRange !== "all";
+
   const [tweets, setTweets] = useState(initialTweets);
   const [cursor, setCursor] = useState(initialCursor);
   const [loading, setLoading] = useState(false);
+  const [filterLoading, setFilterLoading] = useState(false);
   const sentinelRef = useRef<HTMLDivElement>(null);
+
+  // Re-fetch when filters change
+  useEffect(() => {
+    if (!hasFilters) {
+      // Reset to initial data when no filters
+      setTweets(initialTweets);
+      setCursor(initialCursor);
+      return;
+    }
+
+    let cancelled = false;
+    setFilterLoading(true);
+
+    const params = new URLSearchParams();
+    if (q.length >= 3) params.set("q", q);
+    if (category) params.set("category", category);
+    if (timeRange !== "all") params.set("timeRange", timeRange);
+    params.set("limit", "20");
+
+    fetch(`/api/tweets/search?${params.toString()}`)
+      .then((res) => res.json())
+      .then((data) => {
+        if (cancelled) return;
+        setTweets(data.tweets ?? []);
+        setCursor(data.nextCursor ?? null);
+      })
+      .catch(() => {})
+      .finally(() => {
+        if (!cancelled) setFilterLoading(false);
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [q, category, timeRange, hasFilters, initialTweets, initialCursor]);
 
   const loadMore = useCallback(async () => {
     if (loading || !cursor) return;
     setLoading(true);
 
     try {
-      const params = new URLSearchParams({
-        cursor,
-        limit: "20",
-      });
-      const res = await fetch(`/api/tweets?${params.toString()}`);
+      const params = new URLSearchParams({ cursor, limit: "20" });
+      if (hasFilters) {
+        if (q.length >= 3) params.set("q", q);
+        if (category) params.set("category", category);
+        if (timeRange !== "all") params.set("timeRange", timeRange);
+      }
+
+      const endpoint = hasFilters ? "/api/tweets/search" : "/api/tweets";
+      const res = await fetch(`${endpoint}?${params.toString()}`);
       if (!res.ok) throw new Error("Failed to fetch");
       const data = await res.json();
 
       setTweets((prev) => [...prev, ...data.tweets]);
       setCursor(data.nextCursor);
     } catch {
-      // Silently fail - user can scroll again to retry
+      // Silently fail
     } finally {
       setLoading(false);
     }
-  }, [cursor, loading]);
+  }, [cursor, loading, hasFilters, q, category, timeRange]);
 
   useEffect(() => {
     const sentinel = sentinelRef.current;
@@ -54,6 +102,24 @@ export function TweetList({ initialTweets, initialCursor }: TweetListProps) {
     observer.observe(sentinel);
     return () => observer.disconnect();
   }, [loadMore]);
+
+  if (filterLoading) {
+    return (
+      <div className="flex flex-col gap-3">
+        <TweetSkeleton />
+        <TweetSkeleton />
+        <TweetSkeleton />
+      </div>
+    );
+  }
+
+  if (tweets.length === 0 && hasFilters) {
+    return (
+      <p className="py-12 text-center text-sm text-zinc-500">
+        No tweets match your filters
+      </p>
+    );
+  }
 
   return (
     <div className="flex flex-col gap-3">
