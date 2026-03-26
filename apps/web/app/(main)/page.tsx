@@ -1,7 +1,9 @@
+import { Suspense } from "react";
 import { auth } from "@/lib/auth/config";
 import { createServerClient } from "@/lib/supabase/server";
 import { TweetList } from "@/components/tweets/tweet-list";
 import { EmptyState } from "@/components/tweets/empty-state";
+import { FilterBar } from "@/components/search/filter-bar";
 import type { Database } from "@/lib/supabase/types";
 
 type TweetRow = Database["public"]["Tables"]["tweets"]["Row"];
@@ -81,6 +83,9 @@ export default async function LibraryPage() {
       <h1 className="mb-6 text-2xl font-semibold tracking-tight">
         Your Library
       </h1>
+      <Suspense fallback={null}>
+        <FilterBar />
+      </Suspense>
       <TweetList initialTweets={tweets} initialCursor={nextCursor} />
     </div>
   );

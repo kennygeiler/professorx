@@ -1,0 +1,146 @@
+import { NextRequest, NextResponse } from "next/server";
+import { auth } from "@/lib/auth/config";
+import { createServerClient } from "@/lib/supabase/server";
+
+function getDateFromTimeRange(timeRange: string): Date | null {
+  const now = new Date();
+  switch (timeRange) {
+    case "1d":
+      return new Date(now.getTime() - 1 * 24 * 60 * 60 * 1000);
+    case "3d":
+      return new Date(now.getTime() - 3 * 24 * 60 * 60 * 1000);
+    case "1w":
+      return new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
+    case "2w":
+      return new Date(now.getTime() - 14 * 24 * 60 * 60 * 1000);
+    case "1m":
+      return new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
+    case "3m":
+      return new Date(now.getTime() - 90 * 24 * 60 * 60 * 1000);
+    case "6m":
+      return new Date(now.getTime() - 180 * 24 * 60 * 60 * 1000);
+    case "1y":
+      return new Date(now.getTime() - 365 * 24 * 60 * 60 * 1000);
+    default:
+      return null;
+  }
+}
+
+export async function GET(request: NextRequest) {
+  const session = await auth();
+  if (!session?.user?.id) {
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  }
+
+  const { searchParams } = request.nextUrl;
+  const q = searchParams.get("q") ?? "";
+  const category = searchParams.get("category");
+  const timeRange = searchParams.get("timeRange") ?? "all";
+  const cursor = searchParams.get("cursor");
+  const limit = Math.min(
+    parseInt(searchParams.get("limit") ?? "20", 10),
+    50
+  );
+
+  const supabase = await createServerClient();
+
+  // If filtering by category, we need to get tweet IDs first
+  let categoryTweetIds: string[] | null = null;
+  if (category) {
+    const { data: tweetCats } = await supabase
+      .from("tweet_categories")
+      .select("tweet_id")
+      .eq("category_id", category);
+
+    categoryTweetIds = (tweetCats ?? []).map((tc) => tc.tweet_id);
+    if (categoryTweetIds.length === 0) {
+      return NextResponse.json({
+        tweets: [],
+        nextCursor: null,
+        totalCount: 0,
+      });
+    }
+  }
+
+  // Build the main query
+  let query = supabase
+    .from("tweets")
+    .select("*", { count: "exact" })
+    .eq("user_id", session.user.id)
+    .order("tweet_created_at", { ascending: false, nullsFirst: false })
+    .limit(limit + 1);
+
+  // Full-text search filter
+  if (q.length >= 3) {
+    query = query.textSearch("search_vector", q, {
+      type: "plain",
+      config: "english",
+    });
+  }
+
+  // Category filter via tweet IDs
+  if (categoryTweetIds) {
+    query = query.in("id", categoryTweetIds);
+  }
+
+  // Time range filter
+  const sinceDate = getDateFromTimeRange(timeRange);
+  if (sinceDate) {
+    query = query.gte("tweet_created_at", sinceDate.toISOString());
+  }
+
+  // Cursor pagination
+  if (cursor) {
+    query = query.lt("tweet_created_at", cursor);
+  }
+
+  const { data: tweets, error, count } = await query;
+
+  if (error) {
+    return NextResponse.json(
+      { error: "Failed to search tweets" },
+      { status: 500 }
+    );
+  }
+
+  const hasMore = (tweets?.length ?? 0) > limit;
+  const sliced = hasMore ? tweets!.slice(0, limit) : (tweets ?? []);
+  const nextCursor = hasMore
+    ? sliced[sliced.length - 1].tweet_created_at
+    : null;
+
+  // Fetch categories for the result tweets
+  const tweetIds = sliced.map((t) => t.id);
+  const { data: tweetCategories } = await supabase
+    .from("tweet_categories")
+    .select("tweet_id, category_id")
+    .in("tweet_id", tweetIds.length > 0 ? tweetIds : ["__none__"]);
+
+  const categoryIds = [
+    ...new Set((tweetCategories ?? []).map((tc) => tc.category_id)),
+  ];
+  const { data: categories } = await supabase
+    .from("categories")
+    .select("id, name, color")
+    .in("id", categoryIds.length > 0 ? categoryIds : ["__none__"]);
+
+  const categoryMap = new Map(
+    (categories ?? []).map((c) => [c.id, c])
+  );
+
+  const tweetsWithCategories = sliced.map((tweet) => {
+    const tcEntries = (tweetCategories ?? []).filter(
+      (tc) => tc.tweet_id === tweet.id
+    );
+    const cats = tcEntries
+      .map((tc) => categoryMap.get(tc.category_id))
+      .filter(Boolean);
+    return { ...tweet, categories: cats };
+  });
+
+  return NextResponse.json({
+    tweets: tweetsWithCategories,
+    nextCursor,
+    totalCount: count ?? 0,
+  });
+}

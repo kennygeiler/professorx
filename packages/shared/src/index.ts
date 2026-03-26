@@ -1,4 +1,5 @@
 // Types
+export type { AiCorrection, AiCategoryRule, AiMemory } from './types/ai-memory';
 export type { Tweet, TweetWithCategories, TweetMedia, TweetMetrics, QuotedTweet, SourceType } from './types/tweet';
 export type { Category, TweetCategory, CategoryWithStats } from './types/category';
 export type {
