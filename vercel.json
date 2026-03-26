@@ -1,4 +1,5 @@
 {
   "framework": "nextjs",
-  "buildCommand": "pnpm --filter web build && ln -s apps/web/.next .next"
+  "buildCommand": "cd apps/web && next build",
+  "outputDirectory": "apps/web/.next"
 }
