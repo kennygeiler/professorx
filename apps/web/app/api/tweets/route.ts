@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/lib/auth/config";
-import { createServerClient } from "@/lib/supabase/server";
+import { createAdminClient } from "@/lib/supabase/admin";
 
 export async function GET(request: NextRequest) {
   const session = await auth();
@@ -12,7 +12,7 @@ export async function GET(request: NextRequest) {
   const cursor = searchParams.get("cursor");
   const limit = Math.min(parseInt(searchParams.get("limit") ?? "20", 10), 50);
 
-  const supabase = await createServerClient();
+  const supabase = createAdminClient();
 
   let query = supabase
     .from("tweets")

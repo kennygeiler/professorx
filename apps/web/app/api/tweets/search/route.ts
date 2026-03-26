@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/lib/auth/config";
-import { createServerClient } from "@/lib/supabase/server";
+import { createAdminClient } from "@/lib/supabase/admin";
 
 function getDateFromTimeRange(timeRange: string): Date | null {
   const now = new Date();
@@ -42,7 +42,7 @@ export async function GET(request: NextRequest) {
     50
   );
 
-  const supabase = await createServerClient();
+  const supabase = createAdminClient();
 
   // If filtering by category, we need to get tweet IDs first
   let categoryTweetIds: string[] | null = null;

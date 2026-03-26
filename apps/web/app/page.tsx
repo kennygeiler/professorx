@@ -1,7 +1,7 @@
 import { Suspense } from "react";
 import { redirect } from "next/navigation";
 import { auth } from "@/lib/auth/config";
-import { createServerClient } from "@/lib/supabase/server";
+import { createAdminClient } from "@/lib/supabase/admin";
 import { TweetList } from "@/components/tweets/tweet-list";
 import { EmptyState } from "@/components/tweets/empty-state";
 import { FilterBar } from "@/components/search/filter-bar";
@@ -19,7 +19,7 @@ export interface TweetWithCategories extends TweetRow {
 async function getInitialTweets(
   userId: string
 ): Promise<{ tweets: TweetWithCategories[]; nextCursor: string | null }> {
-  const supabase = await createServerClient();
+  const supabase = createAdminClient();
   const limit = 20;
 
   const { data: tweets, error } = await supabase
