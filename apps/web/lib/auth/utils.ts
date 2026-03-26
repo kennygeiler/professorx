@@ -1,7 +1,9 @@
 import { auth } from "@/lib/auth/config";
 import { jwtVerify, SignJWT } from "jose";
 
-const secret = new TextEncoder().encode(process.env.NEXTAUTH_SECRET!);
+const secret = new TextEncoder().encode(
+  process.env.AUTH_SECRET ?? process.env.NEXTAUTH_SECRET ?? ""
+);
 
 export async function getCurrentUser() {
   const session = await auth();
