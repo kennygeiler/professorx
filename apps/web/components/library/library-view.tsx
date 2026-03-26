@@ -131,6 +131,41 @@ export function LibraryView({ initialTweets, initialCursor }: LibraryViewProps) 
   const hasActiveFilters = query.length > 0 || !!category || timeRange !== "all";
   const [filtersOpen, setFiltersOpen] = useState(false);
   const activeFilterCount = (category ? 1 : 0) + (timeRange !== "all" ? 1 : 0);
+  const [aiSearching, setAiSearching] = useState(false);
+  const [showAiSearch, setShowAiSearch] = useState(false);
+
+  const runAiSearch = async () => {
+    if (!debouncedQuery || debouncedQuery.length < 3) return;
+    setAiSearching(true);
+    setShowAiSearch(false);
+    try {
+      const res = await fetch("/api/tweets/ai-search", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ query: debouncedQuery }),
+      });
+      if (!res.ok) return;
+      const data = await res.json();
+      const ids: string[] = data.tweetIds ?? [];
+      if (ids.length === 0) {
+        setTweets([]);
+        return;
+      }
+      // Fetch full tweet data for matched IDs
+      const params = new URLSearchParams({ limit: "50" });
+      params.set("tweetIds", ids.join(","));
+      const tweetsRes = await fetch(`/api/tweets/search?${params.toString()}`);
+      if (tweetsRes.ok) {
+        const tweetsData = await tweetsRes.json();
+        setTweets(tweetsData.tweets ?? []);
+        setCursor(null);
+      }
+    } catch {
+      // Silently handle
+    } finally {
+      setAiSearching(false);
+    }
+  };
 
   const handleCategoryChanged = useCallback(
     (tweetId: string, newCategories: TweetWithCategories["categories"]) => {
@@ -355,10 +390,26 @@ export function LibraryView({ initialTweets, initialCursor }: LibraryViewProps) 
           <TweetSkeleton />
           <TweetSkeleton />
         </div>
+      ) : aiSearching ? (
+        <div className="flex flex-col items-center gap-3 py-12">
+          <svg className="h-5 w-5 animate-spin text-zinc-400" viewBox="0 0 24 24" fill="none">
+            <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+            <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
+          </svg>
+          <p className="text-sm text-zinc-400">AI is searching your tweets...</p>
+        </div>
       ) : tweets.length === 0 && hasFilters ? (
-        <p className="py-12 text-center text-sm text-zinc-500">
-          No tweets match your filters
-        </p>
+        <div className="flex flex-col items-center gap-3 py-12">
+          <p className="text-sm text-zinc-500">No tweets match your filters</p>
+          {debouncedQuery.length >= 3 && (
+            <button
+              onClick={runAiSearch}
+              className="rounded-lg bg-zinc-800 px-4 py-2 text-xs font-medium text-zinc-300 transition-colors hover:bg-zinc-700"
+            >
+              Try AI search
+            </button>
+          )}
+        </div>
       ) : (
         <div className="flex flex-col gap-3">
           {tweets.map((tweet) => (

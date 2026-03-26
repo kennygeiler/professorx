@@ -29,19 +29,19 @@ export function CategoryChips({
             key={cat.id}
             type="button"
             onClick={() => onSelect(isActive ? null : cat.id)}
-            className={`inline-flex shrink-0 items-center gap-1.5 rounded-full px-3 py-1.5 text-sm font-medium transition-all ${
-              isActive
-                ? ""
-                : "bg-zinc-800 text-zinc-400 hover:bg-zinc-700 hover:text-zinc-300"
-            }`}
+            className="inline-flex shrink-0 items-center gap-1.5 rounded-full px-3 py-1.5 text-sm font-medium transition-all"
             style={
               isActive
                 ? {
-                    backgroundColor: `${cat.color}25`,
+                    backgroundColor: `${cat.color}30`,
                     color: cat.color,
                     border: `1px solid ${cat.color}50`,
                   }
-                : undefined
+                : {
+                    backgroundColor: `${cat.color}10`,
+                    color: "#a1a1aa",
+                    border: `1px solid ${cat.color}15`,
+                  }
             }
           >
             <span

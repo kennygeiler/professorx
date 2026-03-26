@@ -33,6 +33,11 @@ export const IngestTweetSchema = z.object({
     url: z.string(),
     display_url: z.string(),
   })).optional().default([]),
+  quoted_tweet: z.object({
+    text: z.string(),
+    author_handle: z.string(),
+    author_display_name: z.string(),
+  }).optional(),
 });
 
 export const IngestRequestSchema = z.object({

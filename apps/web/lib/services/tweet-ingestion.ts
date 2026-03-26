@@ -43,7 +43,12 @@ export async function ingestTweets(
         tweet_type: tweet.tweet_type ?? 'tweet',
         source_type: tweet.source_type,
         tweet_created_at: tweet.tweet_created_at ?? null,
-        raw_data: tweet.links?.length ? { links: tweet.links } : null,
+        raw_data: (tweet.links?.length || tweet.quoted_tweet)
+          ? {
+              ...(tweet.links?.length ? { links: tweet.links } : {}),
+              ...(tweet.quoted_tweet ? { quoted_tweet: tweet.quoted_tweet } : {}),
+            }
+          : null,
       };
 
       if (existing) {

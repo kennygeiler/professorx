@@ -37,9 +37,13 @@ export function TweetCard({ tweet, onCategoryChanged }: TweetCardProps) {
     categoryName: string;
   } | null>(null);
 
-  // Extract links from raw_data
-  const rawData = tweet.raw_data as { links?: Array<{ url: string; display_url: string }> } | null;
+  // Extract links and quoted tweet from raw_data
+  const rawData = tweet.raw_data as {
+    links?: Array<{ url: string; display_url: string }>;
+    quoted_tweet?: { text: string; author_handle: string; author_display_name: string };
+  } | null;
   const links = rawData?.links ?? [];
+  const quotedTweet = rawData?.quoted_tweet;
 
   // Visual hierarchy
   const metrics = tweet.metrics as { likes?: number; retweets?: number } | null;
@@ -157,6 +161,25 @@ export function TweetCard({ tweet, onCategoryChanged }: TweetCardProps) {
                     <span className="truncate max-w-[200px]">{link.display_url}</span>
                   </a>
                 ))}
+              </div>
+            )}
+
+            {/* Quoted tweet embed */}
+            {quotedTweet && (
+              <div className="mt-2 rounded-lg border border-zinc-700/50 bg-zinc-800/30 p-3">
+                <div className="flex items-center gap-1.5 text-xs">
+                  <span className="font-semibold text-zinc-300">
+                    {quotedTweet.author_display_name}
+                  </span>
+                  <span className="text-zinc-500">
+                    @{quotedTweet.author_handle}
+                  </span>
+                </div>
+                <p className="mt-1 whitespace-pre-wrap text-xs leading-relaxed text-zinc-400">
+                  {quotedTweet.text.length > 200
+                    ? quotedTweet.text.slice(0, 200) + "..."
+                    : quotedTweet.text}
+                </p>
               </div>
             )}
 

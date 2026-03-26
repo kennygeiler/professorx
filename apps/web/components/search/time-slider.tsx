@@ -4,15 +4,15 @@ type TimeRange = "all" | "1d" | "3d" | "1w" | "2w" | "1m" | "2m" | "3m" | "6m" |
 
 const STOPS: { value: TimeRange; label: string }[] = [
   { value: "all", label: "All" },
-  { value: "1y", label: "1y" },
-  { value: "6m", label: "6m" },
-  { value: "3m", label: "3m" },
-  { value: "2m", label: "2m" },
-  { value: "1m", label: "1m" },
-  { value: "2w", label: "2w" },
-  { value: "1w", label: "1w" },
-  { value: "3d", label: "3d" },
   { value: "1d", label: "1d" },
+  { value: "3d", label: "3d" },
+  { value: "1w", label: "1w" },
+  { value: "2w", label: "2w" },
+  { value: "1m", label: "1m" },
+  { value: "2m", label: "2m" },
+  { value: "3m", label: "3m" },
+  { value: "6m", label: "6m" },
+  { value: "1y", label: "1y" },
 ];
 
 interface TimeSliderProps {
@@ -31,10 +31,10 @@ export function TimeSlider({ selected, onSelect }: TimeSliderProps) {
 
   return (
     <div className="w-full">
-      {/* Current value label */}
-      <div className="mb-1 flex items-center justify-between">
+      {/* Label row */}
+      <div className="mb-1.5 flex items-center justify-between">
         <span className="text-[10px] font-medium uppercase tracking-wider text-zinc-500">
-          Time range
+          {activeIndex === 0 ? "Showing all tweets" : `Showing from ${STOPS[activeIndex].label} ago`}
         </span>
         <span className="rounded-md bg-zinc-800 px-2 py-0.5 text-xs font-medium text-zinc-300">
           {STOPS[activeIndex].label}
@@ -53,19 +53,19 @@ export function TimeSlider({ selected, onSelect }: TimeSliderProps) {
           className="time-slider w-full cursor-pointer"
         />
 
-        {/* Tick marks */}
-        <div className="mt-0.5 flex justify-between px-[2px]">
+        {/* Tick labels */}
+        <div className="mt-1 flex justify-between px-[2px]">
           {STOPS.map((stop, i) => (
-            <div
+            <span
               key={stop.value}
-              className="flex flex-col items-center"
+              className={`text-[8px] ${
+                i === activeIndex ? "font-medium text-zinc-300" : "text-zinc-600"
+              }`}
             >
-              <div
-                className={`h-1 w-1 rounded-full ${
-                  i === activeIndex ? "bg-zinc-100" : "bg-zinc-700"
-                }`}
-              />
-            </div>
+              {i === 0 || i === STOPS.length - 1 || i === activeIndex
+                ? stop.label
+                : "·"}
+            </span>
           ))}
         </div>
       </div>

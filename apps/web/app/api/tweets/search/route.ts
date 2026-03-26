@@ -39,12 +39,22 @@ export async function GET(request: NextRequest) {
   const category = searchParams.get("category");
   const timeRange = searchParams.get("timeRange") ?? "all";
   const cursor = searchParams.get("cursor");
+  const tweetIdsParam = searchParams.get("tweetIds");
   const limit = Math.min(
     parseInt(searchParams.get("limit") ?? "20", 10),
     50
   );
 
   const supabase = createAdminClient();
+
+  // If filtering by specific tweet IDs (from AI search)
+  let specificTweetIds: string[] | null = null;
+  if (tweetIdsParam) {
+    specificTweetIds = tweetIdsParam.split(",").filter(Boolean);
+    if (specificTweetIds.length === 0) {
+      return NextResponse.json({ tweets: [], nextCursor: null, totalCount: 0 });
+    }
+  }
 
   // If filtering by category, we need to get tweet IDs first
   let categoryTweetIds: string[] | null = null;
@@ -80,15 +90,20 @@ export async function GET(request: NextRequest) {
     });
   }
 
+  // Specific tweet IDs filter (from AI search)
+  if (specificTweetIds) {
+    query = query.in("id", specificTweetIds);
+  }
+
   // Category filter via tweet IDs
   if (categoryTweetIds) {
     query = query.in("id", categoryTweetIds);
   }
 
-  // Time range filter
+  // Time range filter — show tweets FROM that date and older
   const sinceDate = getDateFromTimeRange(timeRange);
   if (sinceDate) {
-    query = query.gte("tweet_created_at", sinceDate.toISOString());
+    query = query.lte("tweet_created_at", sinceDate.toISOString());
   }
 
   // Cursor pagination
