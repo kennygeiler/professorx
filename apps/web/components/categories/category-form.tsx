@@ -11,6 +11,10 @@ const PRESET_COLORS = [
   { name: "Purple", value: "#a855f7" },
   { name: "Pink", value: "#ec4899" },
   { name: "Cyan", value: "#06b6d4" },
+  { name: "Indigo", value: "#6366f1" },
+  { name: "Teal", value: "#14b8a6" },
+  { name: "Orange", value: "#f97316" },
+  { name: "Rose", value: "#f43f5e" },
 ];
 
 interface CategoryFormProps {
@@ -42,6 +46,27 @@ export function CategoryForm({
 
   return (
     <form onSubmit={handleSubmit} className="space-y-4">
+      {/* Live preview chip */}
+      {name.trim() && (
+        <div className="flex items-center gap-2">
+          <span className="text-xs text-zinc-500">Preview:</span>
+          <span
+            className="inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-sm font-medium"
+            style={{
+              backgroundColor: `${color}20`,
+              color: color,
+              border: `1px solid ${color}40`,
+            }}
+          >
+            <span
+              className="inline-block h-2 w-2 rounded-full"
+              style={{ backgroundColor: color }}
+            />
+            {name.trim()}
+          </span>
+        </div>
+      )}
+
       <div>
         <label
           htmlFor="category-name"
@@ -54,8 +79,8 @@ export function CategoryForm({
           type="text"
           value={name}
           onChange={(e) => setName(e.target.value)}
-          placeholder="Category name"
-          className="w-full rounded-lg border border-zinc-700 bg-zinc-800 px-3 py-2 text-sm text-zinc-100 placeholder-zinc-500 outline-none focus:border-zinc-500 focus:ring-1 focus:ring-zinc-500"
+          placeholder="e.g., Tech, Politics, Memes..."
+          className="w-full rounded-lg border border-zinc-700 bg-zinc-800 px-3 py-2.5 text-sm text-zinc-100 placeholder-zinc-500 outline-none transition-colors focus:border-zinc-500 focus:ring-1 focus:ring-zinc-500"
           autoFocus
           required
         />
@@ -71,19 +96,35 @@ export function CategoryForm({
               key={preset.value}
               type="button"
               onClick={() => setColor(preset.value)}
-              className={`h-8 w-8 rounded-full border-2 transition-transform ${
+              className={`relative h-8 w-8 rounded-full transition-all ${
                 color === preset.value
-                  ? "scale-110 border-white"
-                  : "border-transparent hover:scale-105"
+                  ? "scale-110 ring-2 ring-white ring-offset-2 ring-offset-zinc-900"
+                  : "hover:scale-105"
               }`}
               style={{ backgroundColor: preset.value }}
               title={preset.name}
-            />
+            >
+              {color === preset.value && (
+                <svg
+                  className="absolute inset-0 m-auto h-4 w-4 text-white drop-shadow"
+                  fill="none"
+                  viewBox="0 0 24 24"
+                  stroke="currentColor"
+                  strokeWidth={3}
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    d="M4.5 12.75l6 6 9-13.5"
+                  />
+                </svg>
+              )}
+            </button>
           ))}
         </div>
       </div>
 
-      <div className="flex gap-2 pt-2">
+      <div className="flex gap-2 pt-1">
         <button
           type="submit"
           disabled={!name.trim() || loading}
