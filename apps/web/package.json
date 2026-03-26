@@ -14,7 +14,9 @@
     "@shared/core": "workspace:*",
     "@supabase/ssr": "^0.9.0",
     "@supabase/supabase-js": "^2.100.0",
+    "jose": "^6.2.2",
     "next": "^15.0.0",
+    "next-auth": "5.0.0-beta.30",
     "react": "^19.0.0",
     "react-dom": "^19.0.0"
   },

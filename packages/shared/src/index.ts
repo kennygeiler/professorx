@@ -32,6 +32,17 @@ export { CategorySchema, TweetCategorySchema } from './schemas/category';
 export type { CategorySchemaType, TweetCategorySchemaType } from './schemas/category';
 
 export {
+  IngestTweetMediaSchema,
+  IngestTweetMetricsSchema,
+  IngestTweetSchema,
+  IngestRequestSchema as IngestRequestSchemaV2,
+} from './schemas/ingest';
+export type { IngestTweet, IngestRequest as IngestRequestV2 } from './schemas/ingest';
+
+// Constants
+export { MAX_INGEST_BATCH_SIZE, API_TIMEOUT_MS } from './constants';
+
+export {
   IngestTweetPayloadSchema,
   IngestRequestSchema,
   IngestResponseSchema,

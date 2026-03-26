@@ -5,7 +5,7 @@
 - **skill**: /Users/kennygeiler/.claude/plugins/marketplaces/kiln/plugins/kiln/skills/kiln-pipeline/SKILL.md
 - **roster**: /Users/kennygeiler/.claude/plugins/marketplaces/kiln/plugins/kiln/skills/kiln-pipeline/references/blueprints/step-5-build.md
 - **stage**: build
-- **build_iteration**: 1
+- **build_iteration**: 2
 - **correction_cycle**: 0
 - **milestone_count**: 10
 - **milestones_complete**: 0
