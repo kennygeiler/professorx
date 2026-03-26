@@ -1,4 +1,4 @@
 {
   "framework": "nextjs",
-  "buildCommand": "pnpm --filter web build && cp -r apps/web/.next .next && cp apps/web/next.config.ts next.config.ts"
+  "buildCommand": "pnpm --filter web build && ln -s apps/web/.next .next"
 }
