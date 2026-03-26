@@ -37,11 +37,15 @@ export function LibraryView({ initialTweets, initialCursor }: LibraryViewProps) 
 
   const hasFilters = debouncedQuery.length >= 3 || !!category || timeRange !== "all";
 
-  // Fetch categories on mount
+  // Fetch categories and uncategorized count on mount
   useEffect(() => {
     fetch("/api/categories")
       .then((r) => r.json())
       .then((d) => setCategories(d.categories ?? []))
+      .catch(() => {});
+    fetch("/api/categorize/remaining")
+      .then((r) => r.json())
+      .then((d) => setUncategorizedRemaining(d.remaining ?? 0))
       .catch(() => {});
   }, []);
 
@@ -121,6 +125,7 @@ export function LibraryView({ initialTweets, initialCursor }: LibraryViewProps) 
 
   const [categorizing, setCategorizing] = useState(false);
   const [catProgress, setCatProgress] = useState("");
+  const [uncategorizedRemaining, setUncategorizedRemaining] = useState<number | null>(null);
 
   const hasActiveFilters = query.length > 0 || !!category || timeRange !== "all";
 
@@ -141,6 +146,7 @@ export function LibraryView({ initialTweets, initialCursor }: LibraryViewProps) 
         }
         const data = await res.json();
         totalCategorized += data.categorized;
+        setUncategorizedRemaining(data.remaining ?? 0);
 
         if (data.newCategories?.length > 0) {
           setCatProgress(`Created categories: ${data.newCategories.join(", ")}. Categorized ${totalCategorized} tweets...`);
@@ -148,8 +154,8 @@ export function LibraryView({ initialTweets, initialCursor }: LibraryViewProps) 
           setCatProgress(`Categorized ${totalCategorized} tweets...`);
         }
 
-        // If we categorized fewer than 100 this round, we're done
-        if (data.categorized < 100) break;
+        // If nothing was categorized this round, we're done
+        if (data.categorized === 0) break;
         round++;
       }
 
@@ -180,13 +186,15 @@ export function LibraryView({ initialTweets, initialCursor }: LibraryViewProps) 
         <div className="flex flex-col gap-3">
           <SearchBar value={query} onChange={setQuery} />
 
-          {categories.length > 0 ? (
+          {categories.length > 0 && (
             <CategoryChips
               categories={categories}
               selected={category}
               onSelect={setCategory}
             />
-          ) : (
+          )}
+
+          {(uncategorizedRemaining === null || uncategorizedRemaining > 0) && (
             <button
               onClick={runCategorization}
               disabled={categorizing}
@@ -200,8 +208,10 @@ export function LibraryView({ initialTweets, initialCursor }: LibraryViewProps) 
                   </svg>
                   Categorizing...
                 </>
+              ) : uncategorizedRemaining !== null ? (
+                `Categorize ${uncategorizedRemaining} remaining tweets`
               ) : (
-                "✨ Categorize tweets with AI"
+                "Categorize tweets with AI"
               )}
             </button>
           )}

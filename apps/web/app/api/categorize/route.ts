@@ -26,6 +26,7 @@ export async function POST(request: NextRequest) {
 
     return NextResponse.json({
       categorized: result.categorized,
+      remaining: result.remaining,
       newCategories: result.newCategories,
       errors: result.errors,
     });

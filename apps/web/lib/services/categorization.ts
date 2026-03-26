@@ -7,6 +7,7 @@ const BATCH_SIZE = 10;
 
 export interface CategorizationResult {
   categorized: number;
+  remaining: number;
   newCategories: string[];
   errors: string[];
 }
@@ -32,6 +33,7 @@ export async function categorizeTweets(
   const supabase = createAdminClient();
   const result: CategorizationResult = {
     categorized: 0,
+    remaining: 0,
     newCategories: [],
     errors: [],
   };
@@ -60,7 +62,7 @@ export async function categorizeTweets(
     }
   }
 
-  tweetsQuery = tweetsQuery.limit(100);
+  tweetsQuery = tweetsQuery.limit(30);
 
   const { data: tweets, error: tweetsError } = await tweetsQuery;
 
@@ -213,6 +215,34 @@ export async function categorizeTweets(
       result.errors.push(`Batch error: ${message}`);
     }
   }
+
+  // Update tweet_count on all categories for this user
+  const { data: allCats } = await supabase
+    .from('categories')
+    .select('id')
+    .eq('user_id', userId);
+  for (const cat of allCats ?? []) {
+    const { count } = await supabase
+      .from('tweet_categories')
+      .select('id', { count: 'exact', head: true })
+      .eq('category_id', cat.id);
+    await supabase
+      .from('categories')
+      .update({ tweet_count: count ?? 0 })
+      .eq('id', cat.id);
+  }
+
+  // Count remaining uncategorized tweets
+  const { data: nowCategorizedIds } = await supabase
+    .from('tweet_categories')
+    .select('tweet_id')
+    .limit(10000);
+  const nowExcludeIds = new Set((nowCategorizedIds ?? []).map((tc) => tc.tweet_id));
+  const { count: totalUserTweets } = await supabase
+    .from('tweets')
+    .select('id', { count: 'exact', head: true })
+    .eq('user_id', userId);
+  result.remaining = Math.max(0, (totalUserTweets ?? 0) - nowExcludeIds.size);
 
   return result;
 }
