@@ -13,8 +13,7 @@ export const authConfig: NextAuthConfig = {
     signIn: "/login",
   },
   callbacks: {
-    async signIn({ user, account }) {
-      if (!account || !user.id) return false;
+    async signIn() {
       return true;
     },
     async session({ session, token }) {
