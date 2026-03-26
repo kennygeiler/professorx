@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
-import type { TweetWithCategories } from "@/app/(main)/page";
+import type { TweetWithCategories } from "@/app/page";
 import { TweetCard } from "./tweet-card";
 import { TweetSkeleton } from "./tweet-skeleton";
 

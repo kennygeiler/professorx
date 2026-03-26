@@ -1,4 +1,4 @@
-import type { TweetWithCategories } from "@/app/(main)/page";
+import type { TweetWithCategories } from "@/app/page";
 import { TweetMedia } from "./tweet-media";
 import { TweetMetrics } from "./tweet-metrics";
 
