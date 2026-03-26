@@ -7,11 +7,6 @@ export const authConfig: NextAuthConfig = {
     Twitter({
       clientId: process.env.TWITTER_CLIENT_ID!,
       clientSecret: process.env.TWITTER_CLIENT_SECRET!,
-      authorization: {
-        params: {
-          scope: "tweet.read users.read like.read bookmark.read offline.access",
-        },
-      },
     }),
   ],
   pages: {
@@ -36,6 +31,7 @@ export const authConfig: NextAuthConfig = {
       return token;
     },
   },
+  debug: true,
   session: {
     strategy: "jwt",
   },
