@@ -48,11 +48,10 @@ export async function categorizeTweets(
     tweetsQuery = tweetsQuery.in('id', tweetIds);
   } else {
     // Get uncategorized tweets: tweets that have no entry in tweet_categories
-    // First get all tweet IDs that already have categories
+    // First get all tweet IDs that already have categories (any assignment type)
     const { data: categorizedTweetIds } = await supabase
       .from('tweet_categories')
       .select('tweet_id')
-      .eq('assigned_by', 'ai')
       .limit(10000);
 
     const excludeIds = (categorizedTweetIds ?? []).map((tc) => tc.tweet_id);
