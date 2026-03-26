@@ -1,10 +1,8 @@
-import { Suspense } from "react";
 import { redirect } from "next/navigation";
 import { auth } from "@/lib/auth/config";
 import { createAdminClient } from "@/lib/supabase/admin";
-import { TweetList } from "@/components/tweets/tweet-list";
 import { EmptyState } from "@/components/tweets/empty-state";
-import { FilterBar } from "@/components/search/filter-bar";
+import { LibraryView } from "@/components/library/library-view";
 import { Header } from "@/components/layout/header";
 import { Footer } from "@/components/layout/footer";
 import type { Database } from "@/lib/supabase/types";
@@ -39,7 +37,6 @@ async function getInitialTweets(
     ? sliced[sliced.length - 1].tweet_created_at
     : null;
 
-  // Fetch categories for these tweets
   const tweetIds = sliced.map((t) => t.id);
   const { data: tweetCategories } = await supabase
     .from("tweet_categories")
@@ -86,13 +83,7 @@ export default async function LibraryPage() {
       <Header />
       <main className="flex-1">
         <div className="mx-auto max-w-2xl px-4 py-6">
-          <h1 className="mb-6 text-2xl font-semibold tracking-tight">
-            Your Library
-          </h1>
-          <Suspense fallback={null}>
-            <FilterBar />
-          </Suspense>
-          <TweetList initialTweets={tweets} initialCursor={nextCursor} />
+          <LibraryView initialTweets={tweets} initialCursor={nextCursor} />
         </div>
       </main>
       <Footer />

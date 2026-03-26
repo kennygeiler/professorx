@@ -92,7 +92,7 @@ export function TweetCard({ tweet }: { tweet: TweetWithCategories }) {
 
           {/* Metrics */}
           <div className="mt-3">
-            <TweetMetrics metrics={tweet.metrics} />
+            {tweet.metrics && <TweetMetrics metrics={tweet.metrics} />}
           </div>
         </div>
       </div>

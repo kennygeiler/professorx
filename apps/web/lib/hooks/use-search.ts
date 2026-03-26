@@ -12,12 +12,10 @@ export function useSearch(delay = 200) {
       clearTimeout(timerRef.current);
     }
 
-    // Only debounce if query is 3+ chars or empty (to clear results)
-    if (query.length >= 3 || query.length === 0) {
-      timerRef.current = setTimeout(() => {
-        setDebouncedQuery(query);
-      }, delay);
-    }
+    // Always debounce — let the consumer decide the threshold
+    timerRef.current = setTimeout(() => {
+      setDebouncedQuery(query);
+    }, delay);
 
     return () => {
       if (timerRef.current) {
