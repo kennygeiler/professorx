@@ -10,6 +10,7 @@
     "clean": "pnpm -r clean && rm -rf node_modules"
   },
   "devDependencies": {
+    "next": "^15.5.14",
     "typescript": "^5.0.0"
   },
   "engines": {
