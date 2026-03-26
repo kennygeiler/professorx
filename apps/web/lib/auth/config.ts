@@ -7,7 +7,6 @@ export const authConfig: NextAuthConfig = {
     Twitter({
       clientId: process.env.TWITTER_CLIENT_ID!,
       clientSecret: process.env.TWITTER_CLIENT_SECRET!,
-      version: "1.0",
     }),
   ],
   pages: {
