@@ -11,30 +11,35 @@ export async function GET() {
   const supabase = createAdminClient();
   const userId = session.user.id;
 
-  // Count all tweets
-  const { count: totalCount, error: countError } = await supabase
+  // Check if user exists in users table
+  const { data: userRow, error: userError } = await supabase
+    .from("users")
+    .select("id")
+    .eq("id", userId)
+    .maybeSingle();
+
+  // Count tweets
+  const { count, error: countError } = await supabase
     .from("tweets")
     .select("*", { count: "exact", head: true });
 
-  // Count tweets for this user
-  const { count: userCount, error: userError } = await supabase
-    .from("tweets")
-    .select("*", { count: "exact", head: true })
-    .eq("user_id", userId);
+  // Try inserting a test tweet
+  const testResult = await supabase.from("tweets").insert({
+    user_id: userId,
+    twitter_tweet_id: "test_123",
+    text_content: "Test tweet",
+  });
 
-  // Get first 3 tweets raw
-  const { data: sample, error: sampleError } = await supabase
-    .from("tweets")
-    .select("id, user_id, twitter_tweet_id, text_content")
-    .limit(3);
+  // Clean up test
+  await supabase.from("tweets").delete().eq("twitter_tweet_id", "test_123");
 
   return NextResponse.json({
     sessionUserId: userId,
-    totalTweetsInDb: totalCount,
-    totalCountError: countError?.message,
-    tweetsForUser: userCount,
-    userCountError: userError?.message,
-    sampleTweets: sample,
-    sampleError: sampleError?.message,
+    userExistsInDb: !!userRow,
+    userError: userError?.message,
+    tweetCount: count,
+    countError: countError?.message,
+    testInsertError: testResult.error?.message ?? null,
+    testInsertCode: testResult.error?.code ?? null,
   });
 }
