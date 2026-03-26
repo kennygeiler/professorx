@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { auth } from "@/lib/auth/config";
 import { fetchLikedTweets } from "@/lib/twitter/client";
 import { ingestTweets } from "@/lib/services/tweet-ingestion";
+import { createAdminClient } from "@/lib/supabase/admin";
 
 export const maxDuration = 60;
 
@@ -37,6 +38,18 @@ export async function POST(request: Request) {
   }
 
   const userId = session.user.id;
+
+  // Ensure user exists in DB
+  const supabase = createAdminClient();
+  await supabase.from("users").upsert(
+    {
+      id: userId,
+      twitter_id: twitterId,
+      display_name: session.user.name ?? null,
+      avatar_url: session.user.image ?? null,
+    },
+    { onConflict: "id" }
+  );
 
   try {
     // Fetch ONE page of likes (up to 100 tweets) per request
