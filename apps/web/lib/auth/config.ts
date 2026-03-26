@@ -7,11 +7,8 @@ export const authConfig: NextAuthConfig = {
     Twitter({
       clientId: process.env.TWITTER_CLIENT_ID!,
       clientSecret: process.env.TWITTER_CLIENT_SECRET!,
-      authorization: {
-        params: {
-          scope: "tweet.read users.read like.read bookmark.read offline.access",
-        },
-      },
+      authorization:
+        "https://twitter.com/i/oauth2/authorize?scope=tweet.read+users.read+like.read+bookmark.read+offline.access",
     }),
   ],
   pages: {
