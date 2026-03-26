@@ -119,7 +119,59 @@ export function LibraryView({ initialTweets, initialCursor }: LibraryViewProps) 
     setTimeRange("all");
   };
 
+  const [categorizing, setCategorizing] = useState(false);
+  const [catProgress, setCatProgress] = useState("");
+
   const hasActiveFilters = query.length > 0 || !!category || timeRange !== "all";
+
+  const runCategorization = async () => {
+    setCategorizing(true);
+    setCatProgress("Starting AI categorization...");
+    let totalCategorized = 0;
+    let round = 0;
+    const maxRounds = 10;
+
+    try {
+      while (round < maxRounds) {
+        const res = await fetch("/api/categorize", { method: "POST" });
+        if (!res.ok) {
+          const data = await res.json();
+          setCatProgress(`Error: ${data.error}`);
+          break;
+        }
+        const data = await res.json();
+        totalCategorized += data.categorized;
+
+        if (data.newCategories?.length > 0) {
+          setCatProgress(`Created categories: ${data.newCategories.join(", ")}. Categorized ${totalCategorized} tweets...`);
+        } else {
+          setCatProgress(`Categorized ${totalCategorized} tweets...`);
+        }
+
+        // If we categorized fewer than 100 this round, we're done
+        if (data.categorized < 100) break;
+        round++;
+      }
+
+      setCatProgress(`Done! ${totalCategorized} tweets categorized.`);
+
+      // Refresh categories
+      const catRes = await fetch("/api/categories");
+      if (catRes.ok) {
+        const catData = await catRes.json();
+        setCategories(catData.categories ?? []);
+      }
+
+      // Refresh tweets to show category badges
+      if (totalCategorized > 0) {
+        setTimeout(() => window.location.reload(), 1500);
+      }
+    } catch {
+      setCatProgress("Categorization failed. Try again.");
+    } finally {
+      setCategorizing(false);
+    }
+  };
 
   return (
     <div>
@@ -128,12 +180,34 @@ export function LibraryView({ initialTweets, initialCursor }: LibraryViewProps) 
         <div className="flex flex-col gap-3">
           <SearchBar value={query} onChange={setQuery} />
 
-          {categories.length > 0 && (
+          {categories.length > 0 ? (
             <CategoryChips
               categories={categories}
               selected={category}
               onSelect={setCategory}
             />
+          ) : (
+            <button
+              onClick={runCategorization}
+              disabled={categorizing}
+              className="inline-flex items-center gap-2 self-start rounded-lg bg-zinc-800 px-3 py-1.5 text-xs font-medium text-zinc-300 transition-colors hover:bg-zinc-700 disabled:opacity-50"
+            >
+              {categorizing ? (
+                <>
+                  <svg className="h-3 w-3 animate-spin" viewBox="0 0 24 24" fill="none">
+                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
+                  </svg>
+                  Categorizing...
+                </>
+              ) : (
+                "✨ Categorize tweets with AI"
+              )}
+            </button>
+          )}
+
+          {catProgress && (
+            <p className="text-xs text-emerald-400">{catProgress}</p>
           )}
 
           <div className="flex items-center justify-between gap-3">

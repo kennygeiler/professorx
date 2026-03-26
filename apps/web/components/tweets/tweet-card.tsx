@@ -90,9 +90,24 @@ export function TweetCard({ tweet }: { tweet: TweetWithCategories }) {
             </div>
           )}
 
-          {/* Metrics */}
-          <div className="mt-3">
-            {tweet.metrics && <TweetMetrics metrics={tweet.metrics} />}
+          {/* Metrics + Link */}
+          <div className="mt-3 flex items-center justify-between">
+            <div className="flex-1">
+              {tweet.metrics && <TweetMetrics metrics={tweet.metrics} />}
+            </div>
+            <a
+              href={`https://x.com/${tweet.author_handle}/status/${tweet.twitter_tweet_id}`}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="ml-2 shrink-0 rounded-lg p-1.5 text-zinc-500 transition-colors hover:bg-zinc-700 hover:text-zinc-300"
+              title="View on X"
+            >
+              <svg className="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
+                <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6" />
+                <polyline points="15 3 21 3 21 9" />
+                <line x1="10" y1="14" x2="21" y2="3" />
+              </svg>
+            </a>
           </div>
         </div>
       </div>

@@ -46,8 +46,13 @@ export function EmptyState() {
       } while (nextToken && pages < maxPages);
 
       if (totalInserted > 0) {
-        setResult(`Done! Synced ${totalInserted} new tweets (${totalFetched} total fetched)`);
-        setTimeout(() => window.location.reload(), 1500);
+        setResult(`Synced ${totalInserted} tweets! Now categorizing with AI...`);
+        // Auto-trigger categorization
+        try {
+          await fetch("/api/categorize", { method: "POST" });
+        } catch { /* non-critical */ }
+        setResult(`Done! ${totalInserted} tweets synced and categorized.`);
+        setTimeout(() => window.location.reload(), 1000);
       } else if (totalFetched > 0) {
         setResult(`${totalFetched} tweets fetched, all already up to date`);
       } else {
