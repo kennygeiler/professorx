@@ -1,10 +1,1 @@
-[project]
-id = "professorx"
-name = "ProfessorX"
-
-[db]
-port = 54322
-major_version = 15
-
-[api]
-port = 54321
+project_id = "tkzfsaawhfwmzripjphk"

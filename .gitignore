@@ -55,3 +55,4 @@ Thumbs.db
 
 # Chrome extension build
 apps/extension/dist/
+supabase/.temp/
