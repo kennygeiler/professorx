@@ -151,6 +151,11 @@ window.fetch = function (...args: Parameters<typeof fetch>): ReturnType<typeof f
   try {
     const url = typeof args[0] === 'string' ? args[0] : args[0] instanceof URL ? args[0].href : (args[0] as Request)?.url ?? '';
 
+    // Debug: log all graphql fetch URLs
+    if (url.includes('graphql') || url.includes('api.x.com') || url.includes('api.twitter.com')) {
+      console.log('[ProfessorX][DEBUG] Fetch:', url.split('?')[0]);
+    }
+
     if (shouldIntercept(url)) {
       result.then((response) => {
         const cloned = response.clone();

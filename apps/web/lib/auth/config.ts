@@ -7,6 +7,11 @@ export const authConfig: NextAuthConfig = {
     Twitter({
       clientId: process.env.TWITTER_CLIENT_ID!,
       clientSecret: process.env.TWITTER_CLIENT_SECRET!,
+      authorization: {
+        params: {
+          scope: "tweet.read users.read like.read bookmark.read offline.access",
+        },
+      },
     }),
   ],
   pages: {
@@ -21,12 +26,15 @@ export const authConfig: NextAuthConfig = {
       if (token.sub) {
         session.user.id = token.sub;
       }
+      (session as any).accessToken = token.accessToken;
+      (session as any).twitterId = token.twitterId;
       return session;
     },
-    async jwt({ token, account }) {
+    async jwt({ token, account, profile }) {
       if (account) {
         token.accessToken = account.access_token;
         token.refreshToken = account.refresh_token;
+        token.twitterId = account.providerAccountId;
       }
       return token;
     },
