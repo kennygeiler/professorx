@@ -1,11 +1,11 @@
 import { NextResponse } from "next/server";
 import { auth } from "@/lib/auth/config";
-import { fetchLikedTweets, fetchBookmarks } from "@/lib/twitter/client";
+import { fetchLikedTweets } from "@/lib/twitter/client";
 import { ingestTweets } from "@/lib/services/tweet-ingestion";
 
 export const maxDuration = 60;
 
-export async function POST() {
+export async function POST(request: Request) {
   const session = await auth();
   if (!session?.user?.id) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
@@ -28,71 +28,53 @@ export async function POST() {
     );
   }
 
+  // Accept optional pagination token from client for incremental sync
+  let body: { paginationToken?: string } = {};
+  try {
+    body = await request.json();
+  } catch {
+    // No body is fine — first page
+  }
+
   const userId = session.user.id;
-  let totalIngested = 0;
-  let totalUpdated = 0;
-  const errors: string[] = [];
 
   try {
-    // Fetch likes (paginated, up to 5 pages = 500 tweets per sync)
-    let nextToken: string | undefined;
-    let pages = 0;
-    const maxPages = 5;
+    // Fetch ONE page of likes (up to 100 tweets) per request
+    const result = await fetchLikedTweets(
+      twitterId,
+      accessToken,
+      body.paginationToken
+    );
 
-    while (pages < maxPages) {
-      try {
-        const result = await fetchLikedTweets(twitterId, accessToken, nextToken);
+    let inserted = 0;
+    let updated = 0;
+    const errors: string[] = [];
 
-        if (result.tweets.length > 0) {
-          const tweetsWithSource = result.tweets.map((t) => ({
-            ...t,
-            source_type: "like" as const,
-          }));
+    if (result.tweets.length > 0) {
+      const tweetsWithSource = result.tweets.map((t) => ({
+        ...t,
+        source_type: "like" as const,
+      }));
 
-          const ingested = await ingestTweets(userId, tweetsWithSource);
-          totalIngested += ingested.inserted;
-          totalUpdated += ingested.updated;
-          if (ingested.errors.length > 0) errors.push(...ingested.errors);
-        }
-
-        nextToken = result.nextToken;
-        pages++;
-
-        if (!nextToken) break;
-      } catch (e) {
-        errors.push(`Likes page ${pages + 1}: ${e instanceof Error ? e.message : String(e)}`);
-        break;
-      }
+      const ingested = await ingestTweets(userId, tweetsWithSource);
+      inserted = ingested.inserted;
+      updated = ingested.updated;
+      errors.push(...ingested.errors);
     }
 
-    // Fetch bookmarks (single page for now)
-    try {
-      const bookmarkResult = await fetchBookmarks(accessToken);
-      if (bookmarkResult.tweets.length > 0) {
-        const tweetsWithSource = bookmarkResult.tweets.map((t) => ({
-          ...t,
-          source_type: "bookmark" as const,
-        }));
-
-        const ingested = await ingestTweets(userId, tweetsWithSource);
-        totalIngested += ingested.inserted;
-        totalUpdated += ingested.updated;
-        if (ingested.errors.length > 0) errors.push(...ingested.errors);
-      }
-    } catch (e) {
-      errors.push(`Bookmarks: ${e instanceof Error ? e.message : String(e)}`);
-    }
+    return NextResponse.json({
+      inserted,
+      updated,
+      errors,
+      nextToken: result.nextToken ?? null,
+      tweetCount: result.tweets.length,
+      message: `Synced ${inserted} new, ${updated} updated (${result.tweets.length} fetched)`,
+    });
   } catch (e) {
+    const errorMsg = e instanceof Error ? e.message : String(e);
     return NextResponse.json(
-      { error: `Sync failed: ${e instanceof Error ? e.message : String(e)}` },
+      { error: `Sync failed: ${errorMsg}` },
       { status: 500 }
     );
   }
-
-  return NextResponse.json({
-    inserted: totalIngested,
-    updated: totalUpdated,
-    errors,
-    message: `Synced ${totalIngested} new tweets, updated ${totalUpdated}`,
-  });
 }

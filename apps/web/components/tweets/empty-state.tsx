@@ -5,23 +5,56 @@ import { useState } from "react";
 export function EmptyState() {
   const [syncing, setSyncing] = useState(false);
   const [result, setResult] = useState<string | null>(null);
+  const [progress, setProgress] = useState(0);
 
   const handleSync = async () => {
     setSyncing(true);
     setResult(null);
+    setProgress(0);
+
+    let totalInserted = 0;
+    let totalFetched = 0;
+    let nextToken: string | null = null;
+    let pages = 0;
+    const maxPages = 10;
+
     try {
-      const res = await fetch("/api/sync", { method: "POST" });
-      const data = await res.json();
-      if (res.ok) {
-        setResult(`${data.message}`);
-        if (data.inserted > 0) {
-          setTimeout(() => window.location.reload(), 1500);
+      // Fetch one page at a time to stay within Vercel timeout
+      do {
+        const body = nextToken ? JSON.stringify({ paginationToken: nextToken }) : "{}";
+        const res = await fetch("/api/sync", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body,
+        });
+
+        if (!res.ok) {
+          const data = await res.json();
+          setResult(`Error: ${data.error}`);
+          setSyncing(false);
+          return;
         }
+
+        const data = await res.json();
+        totalInserted += data.inserted;
+        totalFetched += data.tweetCount;
+        nextToken = data.nextToken;
+        pages++;
+
+        setProgress(totalFetched);
+        setResult(`Fetched ${totalFetched} tweets so far...`);
+      } while (nextToken && pages < maxPages);
+
+      if (totalInserted > 0) {
+        setResult(`Done! Synced ${totalInserted} new tweets (${totalFetched} total fetched)`);
+        setTimeout(() => window.location.reload(), 1500);
+      } else if (totalFetched > 0) {
+        setResult(`${totalFetched} tweets fetched, all already up to date`);
       } else {
-        setResult(`Error: ${data.error}`);
+        setResult("No liked tweets found on your account");
       }
-    } catch (e) {
-      setResult("Sync failed. Check your connection.");
+    } catch {
+      setResult("Sync failed. Check your connection and try again.");
     } finally {
       setSyncing(false);
     }
@@ -61,7 +94,7 @@ export function EmptyState() {
               <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
               <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
             </svg>
-            Syncing...
+            Syncing... {progress > 0 && `(${progress} tweets)`}
           </>
         ) : (
           <>
