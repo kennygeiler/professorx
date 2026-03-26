@@ -1,4 +1,4 @@
-import { NextResponse } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/lib/auth/config";
 import { createServerClient } from "@/lib/supabase/server";
 
@@ -24,4 +24,46 @@ export async function GET() {
   }
 
   return NextResponse.json({ categories: categories ?? [] });
+}
+
+export async function POST(request: NextRequest) {
+  const session = await auth();
+  if (!session?.user?.id) {
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  }
+
+  let body: { name: string; color?: string };
+  try {
+    body = await request.json();
+  } catch {
+    return NextResponse.json({ error: "Invalid JSON body" }, { status: 400 });
+  }
+
+  if (!body.name?.trim()) {
+    return NextResponse.json(
+      { error: "Category name is required" },
+      { status: 400 }
+    );
+  }
+
+  const supabase = await createServerClient();
+
+  const { data: category, error } = await supabase
+    .from("categories")
+    .insert({
+      user_id: session.user.id,
+      name: body.name.trim(),
+      color: body.color ?? "#71717a",
+    })
+    .select("id, name, color, tweet_count")
+    .single();
+
+  if (error) {
+    return NextResponse.json(
+      { error: "Failed to create category" },
+      { status: 500 }
+    );
+  }
+
+  return NextResponse.json({ category }, { status: 201 });
 }

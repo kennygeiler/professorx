@@ -42,9 +42,13 @@ export const authConfig: NextAuthConfig = {
 };
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
-const nextAuth: any = NextAuth(authConfig);
+const nextAuth = NextAuth(authConfig) as any;
 
-export const handlers: { GET: typeof import("next/server").NextRequest; POST: typeof import("next/server").NextRequest } = nextAuth.handlers;
-export const auth: () => Promise<import("next-auth").Session | null> = nextAuth.auth;
-export const signIn: (...args: unknown[]) => Promise<unknown> = nextAuth.signIn;
-export const signOut: (...args: unknown[]) => Promise<unknown> = nextAuth.signOut;
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+export const handlers: any = nextAuth.handlers;
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+export const auth: any = nextAuth.auth;
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+export const signIn: any = nextAuth.signIn;
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+export const signOut: any = nextAuth.signOut;
