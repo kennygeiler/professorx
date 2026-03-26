@@ -1,4 +1,3 @@
 {
-  "buildCommand": "pnpm --filter web build",
-  "outputDirectory": "apps/web/.next"
+  "buildCommand": "pnpm --filter web build"
 }
