@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { auth } from "@/lib/auth/config";
-import { fetchLikedTweets } from "@/lib/twitter/client";
+import { fetchLikedTweets, fetchBookmarks } from "@/lib/twitter/client";
 import { ingestTweets } from "@/lib/services/tweet-ingestion";
 import { createAdminClient } from "@/lib/supabase/admin";
 
@@ -75,11 +75,47 @@ export async function POST(request: Request) {
       errors.push(...ingested.errors);
     }
 
+    // Also fetch bookmarks if enabled in user settings
+    const { data: userData } = await supabase
+      .from("users")
+      .select("settings")
+      .eq("id", userId)
+      .single();
+
+    const settings = (userData?.settings ?? {}) as Record<string, boolean>;
+    let bookmarkNextToken: string | null = null;
+
+    if (settings.sync_bookmarks) {
+      try {
+        const bookmarkResult = await fetchBookmarks(
+          accessToken,
+          body.paginationToken
+        );
+
+        if (bookmarkResult.tweets.length > 0) {
+          const bookmarksWithSource = bookmarkResult.tweets.map((t) => ({
+            ...t,
+            source_type: "bookmark" as const,
+          }));
+
+          const bookmarkIngested = await ingestTweets(userId, bookmarksWithSource);
+          inserted += bookmarkIngested.inserted;
+          updated += bookmarkIngested.updated;
+          errors.push(...bookmarkIngested.errors);
+        }
+
+        bookmarkNextToken = bookmarkResult.nextToken ?? null;
+      } catch (bookmarkErr) {
+        const msg = bookmarkErr instanceof Error ? bookmarkErr.message : String(bookmarkErr);
+        errors.push(`Bookmark sync: ${msg}`);
+      }
+    }
+
     return NextResponse.json({
       inserted,
       updated,
       errors,
-      nextToken: result.nextToken ?? null,
+      nextToken: result.nextToken ?? bookmarkNextToken ?? null,
       tweetCount: result.tweets.length,
       message: `Synced ${inserted} new, ${updated} updated (${result.tweets.length} fetched)`,
     });

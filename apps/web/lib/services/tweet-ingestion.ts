@@ -43,6 +43,7 @@ export async function ingestTweets(
         tweet_type: tweet.tweet_type ?? 'tweet',
         source_type: tweet.source_type,
         tweet_created_at: tweet.tweet_created_at ?? null,
+        raw_data: tweet.links?.length ? { links: tweet.links } : null,
       };
 
       if (existing) {

@@ -1,7 +1,5 @@
 "use client";
 
-import { useState } from "react";
-
 interface Category {
   id: string;
   name: string;
@@ -20,25 +18,18 @@ export function CategoryChips({
   selected,
   onSelect,
 }: CategoryChipsProps) {
-  const [expanded, setExpanded] = useState(false);
-
   if (categories.length === 0) return null;
 
-  const visibleCount = 7;
-  const hasMore = categories.length > visibleCount;
-  const displayed = expanded ? categories : categories.slice(0, visibleCount);
-  const hiddenCount = categories.length - visibleCount;
-
   return (
-    <div className="flex flex-wrap gap-2">
-      {displayed.map((cat) => {
+    <div className="flex gap-2 overflow-x-auto scrollbar-none pb-0.5">
+      {categories.map((cat) => {
         const isActive = selected === cat.id;
         return (
           <button
             key={cat.id}
             type="button"
             onClick={() => onSelect(isActive ? null : cat.id)}
-            className={`inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 text-sm font-medium transition-all ${
+            className={`inline-flex shrink-0 items-center gap-1.5 rounded-full px-3 py-1.5 text-sm font-medium transition-all ${
               isActive
                 ? ""
                 : "bg-zinc-800 text-zinc-400 hover:bg-zinc-700 hover:text-zinc-300"
@@ -67,26 +58,6 @@ export function CategoryChips({
           </button>
         );
       })}
-
-      {hasMore && !expanded && (
-        <button
-          type="button"
-          onClick={() => setExpanded(true)}
-          className="inline-flex items-center rounded-full bg-zinc-800 px-3 py-1.5 text-sm font-medium text-zinc-400 transition-colors hover:bg-zinc-700 hover:text-zinc-300"
-        >
-          + {hiddenCount} more
-        </button>
-      )}
-
-      {hasMore && expanded && (
-        <button
-          type="button"
-          onClick={() => setExpanded(false)}
-          className="inline-flex items-center rounded-full bg-zinc-800 px-3 py-1.5 text-sm font-medium text-zinc-400 transition-colors hover:bg-zinc-700 hover:text-zinc-300"
-        >
-          Show less
-        </button>
-      )}
     </div>
   );
 }

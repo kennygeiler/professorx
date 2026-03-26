@@ -5,12 +5,12 @@ import Link from "next/link";
 import { useSearch } from "@/lib/hooks/use-search";
 import { SearchBar } from "@/components/search/search-bar";
 import { CategoryChips } from "@/components/search/category-chips";
-import { TimeChips } from "@/components/search/time-chips";
+import { TimeSlider } from "@/components/search/time-slider";
 import { TweetCard } from "@/components/tweets/tweet-card";
 import { TweetSkeleton } from "@/components/tweets/tweet-skeleton";
 import type { TweetWithCategories } from "@/app/page";
 
-type TimeRange = "1d" | "3d" | "1w" | "2w" | "1m" | "3m" | "6m" | "1y" | "all";
+type TimeRange = "1d" | "3d" | "1w" | "2w" | "1m" | "2m" | "3m" | "6m" | "1y" | "all";
 
 interface Category {
   id: string;
@@ -129,6 +129,8 @@ export function LibraryView({ initialTweets, initialCursor }: LibraryViewProps) 
   const [uncategorizedRemaining, setUncategorizedRemaining] = useState<number | null>(null);
 
   const hasActiveFilters = query.length > 0 || !!category || timeRange !== "all";
+  const [filtersOpen, setFiltersOpen] = useState(false);
+  const activeFilterCount = (category ? 1 : 0) + (timeRange !== "all" ? 1 : 0);
 
   const handleCategoryChanged = useCallback(
     (tweetId: string, newCategories: TweetWithCategories["categories"]) => {
@@ -254,27 +256,69 @@ export function LibraryView({ initialTweets, initialCursor }: LibraryViewProps) 
             </button>
           </div>
 
-          {categories.length > 0 && (
-            <div className="flex items-start gap-2">
-              <div className="flex-1">
-                <CategoryChips
-                  categories={categories}
-                  selected={category}
-                  onSelect={setCategory}
-                />
+          {/* Filter toggle for mobile */}
+          <div className="flex items-center gap-2 sm:hidden">
+            <button
+              onClick={() => setFiltersOpen(!filtersOpen)}
+              className={`inline-flex items-center gap-1.5 rounded-lg px-2.5 py-1.5 text-xs font-medium transition-colors ${
+                filtersOpen || activeFilterCount > 0
+                  ? "bg-zinc-800 text-zinc-200"
+                  : "text-zinc-500 hover:text-zinc-300"
+              }`}
+            >
+              <svg className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M3 4a1 1 0 011-1h16a1 1 0 011 1v2.586a1 1 0 01-.293.707l-6.414 6.414a1 1 0 00-.293.707V17l-4 4v-6.586a1 1 0 00-.293-.707L3.293 7.293A1 1 0 013 6.586V4z" />
+              </svg>
+              Filters
+              {activeFilterCount > 0 && (
+                <span className="rounded-full bg-zinc-700 px-1.5 text-[10px]">
+                  {activeFilterCount}
+                </span>
+              )}
+            </button>
+            {hasActiveFilters && (
+              <button onClick={clearAll} className="text-xs text-zinc-500 hover:text-zinc-300">
+                Clear
+              </button>
+            )}
+          </div>
+
+          {/* Filter panel — always visible on desktop, collapsible on mobile */}
+          <div className={`flex flex-col gap-3 ${filtersOpen ? "" : "hidden sm:flex"}`}>
+            {categories.length > 0 && (
+              <div className="flex items-start gap-2">
+                <div className="flex-1">
+                  <CategoryChips
+                    categories={categories}
+                    selected={category}
+                    onSelect={setCategory}
+                  />
+                </div>
+                <Link
+                  href="/settings/categories"
+                  className="shrink-0 rounded-lg p-1.5 text-zinc-500 transition-colors hover:bg-zinc-800 hover:text-zinc-300"
+                  title="Manage categories"
+                >
+                  <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.066 2.573c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.573 1.066c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.066-2.573c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                  </svg>
+                </Link>
               </div>
-              <Link
-                href="/settings/categories"
-                className="shrink-0 rounded-lg p-1.5 text-zinc-500 transition-colors hover:bg-zinc-800 hover:text-zinc-300"
-                title="Manage categories"
+            )}
+
+            <TimeSlider selected={timeRange} onSelect={setTimeRange} />
+
+            {hasActiveFilters && (
+              <button
+                type="button"
+                onClick={clearAll}
+                className="hidden self-start text-xs font-medium text-zinc-500 transition-colors hover:text-zinc-300 sm:block"
               >
-                <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.066 2.573c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.573 1.066c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.066-2.573c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
-                </svg>
-              </Link>
-            </div>
-          )}
+                Clear all
+              </button>
+            )}
+          </div>
 
           {(uncategorizedRemaining === null || uncategorizedRemaining > 0) && (
             <button
@@ -301,19 +345,6 @@ export function LibraryView({ initialTweets, initialCursor }: LibraryViewProps) 
           {catProgress && (
             <p className="text-xs text-emerald-400">{catProgress}</p>
           )}
-
-          <div className="flex items-center justify-between gap-3">
-            <TimeChips selected={timeRange} onSelect={setTimeRange} />
-            {hasActiveFilters && (
-              <button
-                type="button"
-                onClick={clearAll}
-                className="shrink-0 text-xs font-medium text-zinc-500 transition-colors hover:text-zinc-300"
-              >
-                Clear all
-              </button>
-            )}
-          </div>
         </div>
       </div>
 

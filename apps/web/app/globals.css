@@ -1,1 +1,69 @@
 @import "tailwindcss";
+
+/* Fibonacci time slider */
+.time-slider {
+  -webkit-appearance: none;
+  appearance: none;
+  height: 4px;
+  background: #27272a;
+  border-radius: 9999px;
+  outline: none;
+}
+
+.time-slider::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  background: #e4e4e7;
+  cursor: pointer;
+  border: 2px solid #3f3f46;
+  transition: transform 0.15s, background 0.15s;
+}
+
+.time-slider::-webkit-slider-thumb:hover {
+  transform: scale(1.2);
+  background: #ffffff;
+}
+
+.time-slider::-moz-range-thumb {
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  background: #e4e4e7;
+  cursor: pointer;
+  border: 2px solid #3f3f46;
+}
+
+/* Hide scrollbar for category chips */
+.scrollbar-none {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+.scrollbar-none::-webkit-scrollbar {
+  display: none;
+}
+
+/* View transitions */
+@view-transition {
+  navigation: auto;
+}
+
+::view-transition-old(root) {
+  animation: fade-out 150ms ease-out;
+}
+
+::view-transition-new(root) {
+  animation: fade-in 150ms ease-in;
+}
+
+@keyframes fade-out {
+  from { opacity: 1; }
+  to { opacity: 0; }
+}
+
+@keyframes fade-in {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}

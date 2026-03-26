@@ -15,6 +15,8 @@ function getDateFromTimeRange(timeRange: string): Date | null {
       return new Date(now.getTime() - 14 * 24 * 60 * 60 * 1000);
     case "1m":
       return new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
+    case "2m":
+      return new Date(now.getTime() - 60 * 24 * 60 * 60 * 1000);
     case "3m":
       return new Date(now.getTime() - 90 * 24 * 60 * 60 * 1000);
     case "6m":

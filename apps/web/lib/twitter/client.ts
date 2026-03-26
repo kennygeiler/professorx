@@ -172,6 +172,10 @@ export interface NormalizedTweet {
     quotes?: number;
     views?: number;
   };
+  links: Array<{
+    url: string;
+    display_url: string;
+  }>;
   tweet_type: string;
   tweet_created_at: string | null;
 }
@@ -232,6 +236,9 @@ function normalizeTweets(response: TwitterApiResponse): NormalizedTweet[] {
       author_avatar_url: author?.profile_image_url ?? null,
       text_content: tweet.text,
       media,
+      links: (tweet.entities?.urls ?? [])
+        .filter((u) => !u.display_url.startsWith("pic.twitter.com"))
+        .map((u) => ({ url: u.expanded_url, display_url: u.display_url })),
       metrics: {
         likes: tweet.public_metrics?.like_count,
         retweets: tweet.public_metrics?.retweet_count,

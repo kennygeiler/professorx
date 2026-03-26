@@ -5,6 +5,7 @@ export const IngestTweetMediaSchema = z.object({
   type: z.enum(['photo', 'video', 'animated_gif']),
   url: z.string().url(),
   preview_url: z.string().url().optional(),
+  video_url: z.string().url().optional(),
   width: z.number().int().positive().optional(),
   height: z.number().int().positive().optional(),
 });
@@ -28,6 +29,10 @@ export const IngestTweetSchema = z.object({
   tweet_type: z.string().default('tweet'),
   source_type: z.enum(['like', 'bookmark']),
   tweet_created_at: z.string().datetime().optional().nullable(),
+  links: z.array(z.object({
+    url: z.string(),
+    display_url: z.string(),
+  })).optional().default([]),
 });
 
 export const IngestRequestSchema = z.object({

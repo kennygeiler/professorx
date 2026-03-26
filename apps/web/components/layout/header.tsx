@@ -59,7 +59,26 @@ export function Header() {
       }
 
       if (totalInserted > 0) {
-        setSyncResult(`Synced ${totalInserted} new tweets`);
+        setSyncResult(`Synced ${totalInserted} new tweets. Categorizing...`);
+        // Auto-categorize new tweets
+        try {
+          let catRound = 0;
+          let totalCategorized = 0;
+          while (catRound < 10) {
+            const catRes = await fetch("/api/categorize", { method: "POST" });
+            if (!catRes.ok) break;
+            const catData = await catRes.json();
+            totalCategorized += catData.categorized;
+            if (catData.categorized === 0) break;
+            catRound++;
+          }
+          setSyncResult(
+            `Synced ${totalInserted} tweets, ${totalCategorized} categorized`
+          );
+        } catch {
+          setSyncResult(`Synced ${totalInserted} tweets (categorization failed)`);
+        }
+        setTimeout(() => setSyncResult(null), 4000);
       } else if (totalFetched > 0) {
         setSyncResult("All tweets up to date");
         setTimeout(() => setSyncResult(null), 3000);
