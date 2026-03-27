@@ -62,12 +62,13 @@ export async function categorizeTweets(
   } else {
     // Fetch a batch of tweets, then filter out ones that already have categories
     // This avoids a huge NOT IN clause that can exceed URL limits
+    // Fetch newest tweets first — uncategorized ones are typically the most recent
     const { data: candidateTweets, error: candidateError } = await supabase
       .from('tweets')
       .select('id, text_content, author_handle')
       .eq('user_id', userId)
-      .order('created_at', { ascending: true })
-      .limit(200);
+      .order('created_at', { ascending: false })
+      .limit(500);
 
     if (candidateError) {
       tweetsError = candidateError;
