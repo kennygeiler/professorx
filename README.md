@@ -126,6 +126,9 @@ the chrome extension is the entire data ingestion pipeline. no Twitter API invol
 
 **the tab must be in the foreground.** chrome throttles background tabs and Twitter won't render new tweet DOM elements in a hidden tab. you'll see the page scrolling. this is by design.
 
+![sync overlay on Twitter](assets/screenshots/sync-overlay.png)
+*the readXlater overlay shows live progress while scrolling your likes page.*
+
 ## self-healing selectors
 
 Twitter changes their DOM periodically. class names shift, `data-testid` attributes get renamed, structure changes. when that happens, the scraper silently extracts 0 tweets. readXlater handles this automatically.
@@ -171,6 +174,8 @@ the daily health check alarm runs this flow once per day in the background. if T
 
 ## the web app
 
+<!-- add screenshot: assets/screenshots/library.png -->
+
 ### search
 
 - full-text search via PostgreSQL `tsvector` (triggers at 3 characters, 200ms debounce)
@@ -185,6 +190,8 @@ the daily health check alarm runs this flow once per day in the background. if T
 - **time**: fibonacci slider (All, 1d, 3d, 1w, 2w, 1m, 2m, 3m, 6m, 1y) shows tweets from that point in time and older
 - collapsible filter section to save screen space
 
+<!-- add screenshot: assets/screenshots/search-filters.png -->
+
 ### categorization
 
 - GPT-4o-mini assigns 1-2 categories per tweet
@@ -192,6 +199,8 @@ the daily health check alarm runs this flow once per day in the background. if T
 - categories get colors from an 18-color palette
 - AI learns from reclassifications: when you move a tweet, it asks "why?" and stores the correction
 - per-user AI memory (corrections + category rules) stored in JSONB
+
+<!-- add screenshot: assets/screenshots/categories.png -->
 
 ### tweet cards
 
