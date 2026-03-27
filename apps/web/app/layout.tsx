@@ -14,17 +14,17 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: 'ItoldYouIwouldReadthisLater',
+  title: 'readXlater',
   description: 'Your Twitter likes and bookmarks, organized and searchable with AI. Never lose a tweet again.',
   openGraph: {
-    title: 'ItoldYouIwouldReadthisLater',
+    title: 'readXlater',
     description: 'Your Twitter likes and bookmarks, organized and searchable with AI.',
     type: 'website',
-    siteName: 'ItoldYouIwouldReadthisLater',
+    siteName: 'readXlater',
   },
   twitter: {
     card: 'summary',
-    title: 'ItoldYouIwouldReadthisLater',
+    title: 'readXlater',
     description: 'Your Twitter likes and bookmarks, organized and searchable with AI.',
   },
 };
