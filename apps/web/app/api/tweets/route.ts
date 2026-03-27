@@ -14,6 +14,12 @@ export async function GET(request: NextRequest) {
 
   const supabase = createAdminClient();
 
+  // Get total count
+  const { count: totalCount } = await supabase
+    .from("tweets")
+    .select("id", { count: "exact", head: true })
+    .eq("user_id", session.user.id);
+
   let query = supabase
     .from("tweets")
     .select("*")
@@ -69,5 +75,5 @@ export async function GET(request: NextRequest) {
     return { ...tweet, categories: cats };
   });
 
-  return NextResponse.json({ tweets: tweetsWithCategories, nextCursor });
+  return NextResponse.json({ tweets: tweetsWithCategories, nextCursor, totalCount: totalCount ?? 0 });
 }

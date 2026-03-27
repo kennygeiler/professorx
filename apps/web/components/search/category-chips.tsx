@@ -21,7 +21,7 @@ export function CategoryChips({
   if (categories.length === 0) return null;
 
   return (
-    <div className="flex gap-2 overflow-x-auto scrollbar-none pb-0.5">
+    <div className="flex flex-wrap gap-1.5">
       {categories.map((cat) => {
         const isActive = selected === cat.id;
         return (
@@ -29,7 +29,7 @@ export function CategoryChips({
             key={cat.id}
             type="button"
             onClick={() => onSelect(isActive ? null : cat.id)}
-            className="inline-flex shrink-0 items-center gap-1.5 rounded-full px-3 py-1.5 text-sm font-medium transition-all"
+            className="inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-medium transition-all"
             style={
               isActive
                 ? {

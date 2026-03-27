@@ -35,15 +35,20 @@ export function LibraryView({ initialTweets, initialCursor }: LibraryViewProps) 
   const [cursor, setCursor] = useState(initialCursor);
   const [loading, setLoading] = useState(false);
   const [filterLoading, setFilterLoading] = useState(false);
+  const [totalCount, setTotalCount] = useState<number | null>(null);
   const sentinelRef = useRef<HTMLDivElement>(null);
 
   const hasFilters = debouncedQuery.length >= 3 || !!category || timeRange !== "all" || !!mediaType;
 
-  // Fetch categories and uncategorized count on mount
+  // Fetch categories, uncategorized count, and total tweet count on mount
   useEffect(() => {
     fetch("/api/categories")
       .then((r) => r.json())
       .then((d) => setCategories(d.categories ?? []))
+      .catch(() => {});
+    fetch("/api/tweets/search?limit=1")
+      .then((r) => r.json())
+      .then((d) => setTotalCount(d.totalCount ?? null))
       .catch(() => {});
     fetch("/api/categorize/remaining")
       .then((r) => r.json())
@@ -75,6 +80,7 @@ export function LibraryView({ initialTweets, initialCursor }: LibraryViewProps) 
         if (cancelled) return;
         setTweets(data.tweets ?? []);
         setCursor(data.nextCursor ?? null);
+        if (data.totalCount !== undefined) setTotalCount(data.totalCount);
       })
       .catch(() => {})
       .finally(() => {
@@ -211,6 +217,7 @@ export function LibraryView({ initialTweets, initialCursor }: LibraryViewProps) 
         const tweetsData = await tweetsRes.json();
         setTweets(tweetsData.tweets ?? []);
         setCursor(tweetsData.nextCursor ?? null);
+        if (tweetsData.totalCount !== undefined) setTotalCount(tweetsData.totalCount);
       }
     } catch {
       // Silently handle
@@ -295,6 +302,14 @@ export function LibraryView({ initialTweets, initialCursor }: LibraryViewProps) 
               </svg>
             </button>
           </div>
+
+          {/* Tweet count */}
+          {totalCount !== null && (
+            <p className="text-[11px] tabular-nums text-zinc-500">
+              {totalCount.toLocaleString()} tweet{totalCount !== 1 ? "s" : ""}
+              {hasFilters ? " matching" : " total"}
+            </p>
+          )}
 
           {/* Filter toggle for mobile */}
           <div className="flex items-center gap-2 sm:hidden">
