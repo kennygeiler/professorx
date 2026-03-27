@@ -4,13 +4,23 @@ import { IngestRequestSchema } from '@shared/schemas/ingest';
 import { MAX_INGEST_BATCH_SIZE } from '@shared/constants';
 import { ingestTweets } from '@/lib/services/tweet-ingestion';
 
+const corsHeaders = {
+  'Access-Control-Allow-Origin': '*',
+  'Access-Control-Allow-Methods': 'POST, OPTIONS',
+  'Access-Control-Allow-Headers': 'Content-Type, Authorization',
+};
+
+export async function OPTIONS(): Promise<NextResponse> {
+  return NextResponse.json({}, { headers: corsHeaders });
+}
+
 export async function POST(request: NextRequest): Promise<NextResponse> {
   // Validate Authorization header
   const authHeader = request.headers.get('authorization');
   if (!validateApiKey(authHeader)) {
     return NextResponse.json(
       { error: 'Missing or invalid Authorization header' },
-      { status: 401 }
+      { status: 401, headers: corsHeaders }
     );
   }
 
@@ -23,7 +33,7 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
   } catch {
     return NextResponse.json(
       { error: 'Invalid JSON body' },
-      { status: 400 }
+      { status: 400, headers: corsHeaders }
     );
   }
 
@@ -37,7 +47,7 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
   ) {
     return NextResponse.json(
       { error: `Batch size exceeds maximum of ${MAX_INGEST_BATCH_SIZE} tweets` },
-      { status: 400 }
+      { status: 400, headers: corsHeaders }
     );
   }
 
@@ -45,7 +55,7 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
   if (!parseResult.success) {
     return NextResponse.json(
       { error: 'Invalid request body', details: parseResult.error.flatten() },
-      { status: 400 }
+      { status: 400, headers: corsHeaders }
     );
   }
 
@@ -58,5 +68,5 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
     updated: result.updated,
     errors: result.errors,
     total: result.inserted + result.updated,
-  });
+  }, { headers: corsHeaders });
 }
