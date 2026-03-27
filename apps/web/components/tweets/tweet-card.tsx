@@ -129,7 +129,7 @@ export function TweetCard({ tweet, onCategoryChanged }: TweetCardProps) {
             </div>
 
             {/* Tweet text */}
-            <p className="mt-1 whitespace-pre-wrap text-sm leading-relaxed text-zinc-200">
+            <p className="mt-1 whitespace-pre-wrap text-sm leading-relaxed text-zinc-200 line-clamp-6">
               {tweet.text_content}
             </p>
 

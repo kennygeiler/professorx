@@ -120,6 +120,22 @@ export async function POST(request: NextRequest) {
     }
   }
 
+  // Update category tweet counts
+  const { data: allUserCats } = await supabase
+    .from('categories')
+    .select('id')
+    .eq('user_id', session.user.id);
+  for (const cat of allUserCats ?? []) {
+    const { count } = await supabase
+      .from('tweet_categories')
+      .select('id', { count: 'exact', head: true })
+      .eq('category_id', cat.id);
+    await supabase
+      .from('categories')
+      .update({ tweet_count: count ?? 0 })
+      .eq('id', cat.id);
+  }
+
   // Return updated tweet categories
   const { data: updatedCategories } = await supabase
     .from('tweet_categories')

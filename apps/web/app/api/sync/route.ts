@@ -29,8 +29,8 @@ export async function POST(request: Request) {
     );
   }
 
-  // Accept optional pagination token from client for incremental sync
-  let body: { paginationToken?: string } = {};
+  // Accept optional pagination tokens from client
+  let body: { paginationToken?: string; bookmarkPaginationToken?: string } = {};
   try {
     body = await request.json();
   } catch {
@@ -89,7 +89,7 @@ export async function POST(request: Request) {
       try {
         const bookmarkResult = await fetchBookmarks(
           accessToken,
-          body.paginationToken
+          body.bookmarkPaginationToken
         );
 
         if (bookmarkResult.tweets.length > 0) {
@@ -115,7 +115,8 @@ export async function POST(request: Request) {
       inserted,
       updated,
       errors,
-      nextToken: result.nextToken ?? bookmarkNextToken ?? null,
+      nextToken: result.nextToken ?? null,
+      bookmarkNextToken: bookmarkNextToken,
       tweetCount: result.tweets.length,
       message: `Synced ${inserted} new, ${updated} updated (${result.tweets.length} fetched)`,
     });

@@ -75,7 +75,15 @@ export default async function LibraryPage() {
   const { tweets, nextCursor } = await getInitialTweets(session.user.id);
 
   if (tweets.length === 0) {
-    return <EmptyState />;
+    return (
+      <div className="flex min-h-screen flex-col bg-zinc-950 text-zinc-100">
+        <Header />
+        <main className="flex-1">
+          <EmptyState />
+        </main>
+        <Footer />
+      </div>
+    );
   }
 
   return (

@@ -1,11 +1,13 @@
 {
   "name": "ProfessorX",
   "short_name": "ProfessorX",
-  "description": "Your Twitter likes, organized and searchable",
+  "description": "Your Twitter likes and bookmarks, organized and searchable with AI",
   "start_url": "/",
   "display": "standalone",
   "background_color": "#09090b",
-  "theme_color": "#09090b",
+  "theme_color": "#1d9bf0",
+  "orientation": "portrait",
+  "categories": ["social", "productivity"],
   "icons": [
     { "src": "/icons/icon-192.png", "sizes": "192x192", "type": "image/png" },
     { "src": "/icons/icon-512.png", "sizes": "512x512", "type": "image/png" }

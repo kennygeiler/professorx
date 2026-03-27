@@ -91,6 +91,8 @@ export async function categorizeTweets(
     }
   }
 
+  console.log(`[Categorize] Found ${tweets?.length ?? 0} uncategorized tweets for user ${userId}`);
+
   if (tweetsError) {
     result.errors.push(`Failed to fetch tweets: ${tweetsError.message}`);
     return result;
