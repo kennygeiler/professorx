@@ -40,6 +40,8 @@ readXlater solves both problems. a chrome extension scrolls your Twitter likes p
 
 ## how it works
 
+### architecture
+
 ```
 ┌─────────────────────────────────────────────────────────────────┐
 │                        your browser                             │
@@ -64,6 +66,72 @@ readXlater solves both problems. a chrome extension scrolls your Twitter likes p
                     │   supabase   │    │   GPT-4o-mini  │    │    search    │
                     │   (store)    │    │ (categorize)   │    │  (find)      │
                     └──────────────┘    └──────────────┘    └──────────────┘
+```
+
+### the flow
+
+```
+  YOU                  EXTENSION                    BACKEND                    DATABASE
+   │                      │                           │                          │
+   │  click "Sync Likes"  │                           │                          │
+   │─────────────────────▶│                           │                          │
+   │                      │                           │                          │
+   │                      │  open x.com/{handle}/likes│                          │
+   │                      │  auto-scroll page         │                          │
+   │                      │  extract tweets from DOM  │                          │
+   │                      │  ┌─────────────────────┐  │                          │
+   │                      │  │ text, author, media, │  │                          │
+   │                      │  │ metrics, timestamps, │  │                          │
+   │                      │  │ quoted tweets, links │  │                          │
+   │                      │  └─────────┬───────────┘  │                          │
+   │                      │            │              │                          │
+   │                      │  batch 50 tweets          │                          │
+   │                      │───────────────────────────▶│  POST /api/ingest       │
+   │                      │            │              │─────────────────────────▶│
+   │                      │            │              │  upsert tweets           │
+   │                      │  (repeat until no new)    │                          │
+   │                      │            │              │                          │
+   │                      │  redirect to library      │                          │
+   │◀─────────────────────│  ?synced=591              │                          │
+   │                      │                           │                          │
+   │  click "Categorize"  │                           │                          │
+   │──────────────────────────────────────────────────▶│                          │
+   │                                                  │  fetch 50 uncategorized  │
+   │                                                  │◀─────────────────────────│
+   │                                                  │                          │
+   │                                                  │  build prompt:           │
+   │                                                  │  • existing categories   │
+   │                                                  │  • user corrections      │
+   │                                                  │  • category rules        │
+   │                                                  │         │                │
+   │                                                  │         ▼                │
+   │                                                  │  ┌─────────────┐        │
+   │                                                  │  │ GPT-4o-mini │        │
+   │                                                  │  │ (5 batches  │        │
+   │                                                  │  │  of 10)     │        │
+   │                                                  │  └──────┬──────┘        │
+   │                                                  │         │                │
+   │                                                  │  assign 1-2 categories  │
+   │                                                  │  auto-create new ones   │
+   │                                                  │─────────────────────────▶│
+   │                                                  │  insert tweet_categories │
+   │  "Round 7: +49 (382 remaining)"                  │  update counts           │
+   │◀─────────────────────────────────────────────────│                          │
+   │                                                  │                          │
+   │  reclassify tweet                                │                          │
+   │──────────────────────────────────────────────────▶│                          │
+   │  "why this category?"                            │  store correction        │
+   │──────────────────────────────────────────────────▶│  extract rule            │
+   │                                                  │─────────────────────────▶│
+   │                                                  │  save to ai_memory JSONB │
+   │                                                  │  (feeds into next prompt)│
+   │                                                  │                          │
+   │  search "find movie tweets"                      │                          │
+   │──────────────────────────────────────────────────▶│                          │
+   │                                                  │  GPT-4o-mini reads 500   │
+   │                                                  │  tweets, returns matches │
+   │  results                                         │                          │
+   │◀─────────────────────────────────────────────────│                          │
 ```
 
 three pieces. the extension collects tweets. the backend stores and categorizes them. the frontend lets you search and browse.
