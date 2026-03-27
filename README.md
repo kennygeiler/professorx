@@ -40,34 +40,6 @@ readXlater solves both problems. a chrome extension scrolls your Twitter likes p
 
 ## how it works
 
-### architecture
-
-```
-┌─────────────────────────────────────────────────────────────────┐
-│                        your browser                             │
-│                                                                 │
-│  ┌──────────────┐    ┌──────────────┐    ┌──────────────────┐  │
-│  │   extension   │───▶│  x.com/likes  │───▶│  extract tweets  │  │
-│  │  click sync   │    │  auto-scroll  │    │  from the DOM    │  │
-│  └──────────────┘    └──────────────┘    └────────┬─────────┘  │
-│                                                    │            │
-└────────────────────────────────────────────────────┼────────────┘
-                                                     │ POST /api/ingest
-                                                     ▼
-                                          ┌──────────────────┐
-                                          │   your backend    │
-                                          │  (localhost:3000) │
-                                          └────────┬─────────┘
-                                                   │
-                            ┌──────────────────────┼──────────────────────┐
-                            │                      │                      │
-                            ▼                      ▼                      ▼
-                    ┌──────────────┐    ┌──────────────┐    ┌──────────────┐
-                    │   supabase   │    │   GPT-4o-mini  │    │    search    │
-                    │   (store)    │    │ (categorize)   │    │  (find)      │
-                    └──────────────┘    └──────────────┘    └──────────────┘
-```
-
 ### the flow
 
 ```
@@ -189,7 +161,7 @@ a tab opens. it scrolls. tweets flow into your library. you walk away.
 
 ### 15 minutes: categorize everything
 
-click the "Categorize" button in your library. AI reads each tweet and assigns 1-2 categories. new categories are created automatically when the AI encounters topics that don't fit existing ones. 30 tweets per batch, loops until everything is categorized.
+click the "Categorize" button in your library. AI reads each tweet and assigns 1-2 categories. new categories are created automatically when the AI encounters topics that don't fit existing ones. 50 tweets per round, loops until everything is categorized.
 
 ## the extension
 
@@ -204,7 +176,7 @@ the chrome extension is the entire data ingestion pipeline. no Twitter API invol
 5. deduplicates by tweet ID (Set)
 6. sends batches of 50 to `/api/tweets/ingest` with Bearer token auth
 7. stops after 6 consecutive scrolls with no new tweets
-8. closes the tab, repeats for bookmarks if selected
+8. redirects to your library with a flash message showing how many were synced
 
 **what it extracts per tweet:**
 
@@ -213,8 +185,9 @@ the chrome extension is the entire data ingestion pipeline. no Twitter API invol
 - avatar URL (from `img[src*="profile_images"]`)
 - full tweet text (from `div[data-testid="tweetText"]`)
 - timestamp (from `time[datetime]`)
-- photos (from `pbs.twimg.com/media` URLs)
-- videos (from `video` elements)
+- photos at full resolution (from `pbs.twimg.com/media` URLs, upgraded to `&name=large`)
+- video/GIF thumbnails (from `video` poster attributes — playable URLs aren't in the DOM)
+- quoted tweet text, author, and media (from `div[data-testid="quotedTweet"]`)
 - metrics (from button `aria-label` attributes)
 - tweet type (tweet, retweet, quote)
 
@@ -400,9 +373,7 @@ apps/
       selectors.ts              # configurable CSS selectors
       inspector.ts              # selector health checker
       background.ts             # daily health check alarm
-      popup/                    # popup UI (sync buttons, token input)
-      lib/
-        auth.ts                 # API key + handle storage
+      popup/                    # popup UI (sync buttons, API key input)
     manifest.json
 packages/
   shared/                       # shared zod schemas + constants
@@ -412,47 +383,50 @@ supabase/
 
 ## environment variables
 
-create `apps/web/.env.local`:
+copy `apps/web/.env.example` to `apps/web/.env.local` and fill in:
 
 ```env
-# supabase
+# supabase (free tier at supabase.com)
 NEXT_PUBLIC_SUPABASE_URL=https://your-project.supabase.co
 NEXT_PUBLIC_SUPABASE_ANON_KEY=your-anon-key
 SUPABASE_SERVICE_ROLE_KEY=your-service-role-key
 
-# auth (generate with: openssl rand -base64 32)
-AUTH_SECRET=your-random-secret
-AUTH_URL=http://localhost:3000
-AUTH_TRUST_HOST=true
+# API key — shared secret between web app and extension
+# generate with: openssl rand -hex 32
+API_KEY=your-generated-key
 
-# twitter oauth (developer.x.com — for login only, not tweet fetching)
-TWITTER_CLIENT_ID=your-client-id
-TWITTER_CLIENT_SECRET=your-client-secret
+# local user ID (leave as "local" or any string)
+LOCAL_USER_ID=local
 
 # openai (for AI categorization + semantic search)
 OPENAI_API_KEY=sk-your-key
+
+# optional: set to "true" on vercel to show landing page instead of app
+# DEMO_MODE=true
 ```
 
-no Twitter developer account or OAuth needed. the extension uses your existing browser login.
+no Twitter developer account needed. no OAuth. no accounts. the extension uses your existing browser login.
 
 ## deployment
 
-### vercel
+readXlater is designed to run locally. but you can deploy it if you want:
+
+### vercel (optional — for demo/landing page)
 
 1. push to github
 2. import in vercel
-3. set all environment variables from `.env.example`
+3. set `DEMO_MODE=true` + supabase + openai env vars
+4. the vercel URL shows a landing page, not the app
 
-### extension
-
-**important:** update the default backend URL in `apps/extension/src/lib/auth.ts` to your deployed domain. the extension defaults to `http://localhost:3000` for local dev.
+### local (the real thing)
 
 ```bash
-cd apps/extension
-npx tsx build.ts
+pnpm install
+cd apps/web && pnpm dev     # backend at localhost:3000
+cd apps/extension && npx tsx build.ts  # build extension
 ```
 
-redistribute the `apps/extension` folder. users load it as an unpacked extension.
+load the extension as unpacked in chrome. enter your @handle and API_KEY. sync.
 
 ## api routes
 
