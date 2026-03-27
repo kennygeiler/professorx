@@ -40,7 +40,7 @@ export function TweetCard({ tweet, onCategoryChanged }: TweetCardProps) {
   // Extract links and quoted tweet from raw_data
   const rawData = tweet.raw_data as {
     links?: Array<{ url: string; display_url: string }>;
-    quoted_tweet?: { text: string; author_handle: string; author_display_name: string };
+    quoted_tweet?: { text: string; author_handle: string; author_display_name: string; media?: Array<{ type: string; url: string; preview_url?: string }> };
   } | null;
   const links = rawData?.links ?? [];
   const quotedTweet = rawData?.quoted_tweet;
@@ -179,10 +179,37 @@ export function TweetCard({ tweet, onCategoryChanged }: TweetCardProps) {
                   </span>
                 </div>
                 <p className="mt-1 whitespace-pre-wrap text-xs leading-relaxed text-zinc-400">
-                  {quotedTweet.text.length > 200
-                    ? quotedTweet.text.slice(0, 200) + "..."
+                  {quotedTweet.text.length > 280
+                    ? quotedTweet.text.slice(0, 280) + "..."
                     : quotedTweet.text}
                 </p>
+                {quotedTweet.media && quotedTweet.media.length > 0 && (
+                  <div className="mt-2">
+                    {quotedTweet.media.map((m, i) => (
+                      m.type === "video" ? (
+                        <video
+                          key={i}
+                          src={m.url}
+                          poster={m.preview_url}
+                          controls
+                          playsInline
+                          preload="none"
+                          className="w-full rounded-md"
+                          style={{ maxHeight: 200 }}
+                        />
+                      ) : (
+                        <img
+                          key={i}
+                          src={m.url}
+                          alt=""
+                          className="w-full rounded-md object-cover"
+                          style={{ maxHeight: 200 }}
+                          loading="lazy"
+                        />
+                      )
+                    ))}
+                  </div>
+                )}
               </div>
             )}
 

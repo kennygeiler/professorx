@@ -14,6 +14,12 @@ interface ScrapedTweet {
   metrics: Record<string, number | undefined>;
   tweet_type: string;
   tweet_created_at: string | null;
+  quoted_tweet?: {
+    text: string;
+    author_handle: string;
+    author_display_name: string;
+    media?: Array<{ type: string; url: string; preview_url?: string }>;
+  };
 }
 
 (async () => {
@@ -99,27 +105,98 @@ interface ScrapedTweet {
       }
 
       const avatar = article.querySelector('img[src*="profile_images"]')?.getAttribute("src") ?? null;
-      const textEl = article.querySelector('div[data-testid="tweetText"]') || article.querySelector("div[lang]");
-      const timeEl = article.querySelector("time");
 
-      const media: ScrapedTweet["media"] = [];
-      for (const img of article.querySelectorAll("img")) {
-        const s = img.getAttribute("src") ?? "";
-        if (s.includes("pbs.twimg.com/media")) media.push({ type: "photo", url: s });
+      // Get the quoted tweet element (if any) so we can exclude it from main tweet extraction
+      const quotedEl = article.querySelector('div[data-testid="quotedTweet"]') as HTMLElement | null;
+
+      // Tweet text — from the main tweet, not the quote
+      let textContent = "";
+      const allTextDivs = article.querySelectorAll('div[data-testid="tweetText"]');
+      if (allTextDivs.length > 0) {
+        // First tweetText is the main tweet, second (if exists) is the quoted tweet
+        textContent = allTextDivs[0]?.textContent?.trim() ?? "";
+      } else {
+        const langDiv = article.querySelector("div[lang]");
+        if (langDiv) textContent = langDiv.textContent?.trim() ?? "";
       }
 
+      const timeEl = article.querySelector("time");
+
+      // Media — from main tweet area (exclude quoted tweet media)
+      const media: ScrapedTweet["media"] = [];
+      const mainArea = article;
+      for (const img of mainArea.querySelectorAll("img")) {
+        // Skip images inside the quoted tweet
+        if (quotedEl?.contains(img)) continue;
+        let src = img.getAttribute("src") ?? "";
+        if (src.includes("pbs.twimg.com/media")) {
+          // Upgrade to large size
+          src = src.replace(/&name=\w+/, "&name=large").replace(/\?format=/, "?format=");
+          if (!src.includes("&name=")) src += "&name=large";
+          media.push({ type: "photo", url: src });
+        }
+      }
+      // Videos
+      for (const vid of mainArea.querySelectorAll("video")) {
+        if (quotedEl?.contains(vid)) continue;
+        const src = vid.getAttribute("src") ?? (vid.querySelector("source") as HTMLSourceElement)?.getAttribute("src") ?? "";
+        const poster = vid.getAttribute("poster") ?? "";
+        if (src || poster) media.push({ type: "video", url: src || poster, preview_url: poster || undefined });
+      }
+
+      // Metrics
       const metrics: Record<string, number | undefined> = {};
       for (const btn of article.querySelectorAll("[role=button],button")) {
+        if (quotedEl?.contains(btn)) continue;
         const l = btn.getAttribute("aria-label")?.toLowerCase() ?? "";
         if (l.includes("repl")) metrics.replies = parseMetric(l);
         else if (l.includes("repost")) metrics.retweets = parseMetric(l);
         else if (l.includes("like")) metrics.likes = parseMetric(l);
       }
 
+      // Quoted tweet extraction
+      let quotedTweet: { text: string; author_handle: string; author_display_name: string; media?: ScrapedTweet["media"] } | undefined;
+      if (quotedEl) {
+        const qtTextEl = quotedEl.querySelector('div[data-testid="tweetText"]');
+        const qtText = qtTextEl?.textContent?.trim() ?? "";
+
+        let qtHandle = "unknown", qtName = "Unknown";
+        for (const a of quotedEl.querySelectorAll("a[href]")) {
+          const h = a.getAttribute("href") ?? "";
+          if (h.match(/^\/[A-Za-z0-9_]{1,15}$/) && !h.includes("/status/")) {
+            qtHandle = h.slice(1);
+            const s = a.querySelector("span");
+            if (s?.textContent) qtName = s.textContent.trim();
+            break;
+          }
+        }
+
+        // Quoted tweet media
+        const qtMedia: ScrapedTweet["media"] = [];
+        for (const img of quotedEl.querySelectorAll("img")) {
+          let src = img.getAttribute("src") ?? "";
+          if (src.includes("pbs.twimg.com/media")) {
+            src = src.replace(/&name=\w+/, "&name=large");
+            if (!src.includes("&name=")) src += "&name=large";
+            qtMedia.push({ type: "photo", url: src });
+          }
+        }
+        for (const vid of quotedEl.querySelectorAll("video")) {
+          const src = vid.getAttribute("src") ?? "";
+          const poster = vid.getAttribute("poster") ?? "";
+          if (src || poster) qtMedia.push({ type: "video", url: src || poster, preview_url: poster || undefined });
+        }
+
+        quotedTweet = { text: qtText, author_handle: qtHandle, author_display_name: qtName, ...(qtMedia.length > 0 ? { media: qtMedia } : {}) };
+      }
+
+      const tweetType = quotedEl ? "quote" : "tweet";
+
       return {
         twitter_tweet_id: tweetId, author_handle: handle, author_display_name: name,
-        author_avatar_url: avatar, text_content: textEl?.textContent?.trim() ?? "",
-        media, metrics, tweet_type: "tweet", tweet_created_at: timeEl?.getAttribute("datetime") ?? null,
+        author_avatar_url: avatar, text_content: textContent,
+        media, metrics, tweet_type: tweetType, tweet_created_at: timeEl?.getAttribute("datetime") ?? null,
+        quoted_tweet: quotedTweet,
       };
     } catch { return null; }
   }
