@@ -128,21 +128,35 @@ setupSyncButton("sync-both-btn", ["like", "bookmark"]);
 setupSyncButton("sync-likes-btn", ["like"]);
 setupSyncButton("sync-bookmarks-btn", ["bookmark"]);
 
-// Test connection
-document.getElementById("test-btn")!.addEventListener("click", () => {
+// Test connection — do the fetch directly from popup instead of relying on service worker
+document.getElementById("test-btn")!.addEventListener("click", async () => {
   statusEl.textContent = "Testing...";
-  chrome.runtime.sendMessage({ type: "TEST_INGEST" }, (response) => {
-    if (chrome.runtime.lastError) {
-      statusEl.textContent = `Error: ${chrome.runtime.lastError.message}`;
-      return;
-    }
-    if (response?.error) {
-      statusEl.textContent = `Failed: ${response.error}`;
-      statusEl.className = "status error";
+
+  const result = await chrome.storage.local.get(["readxlater_auth_token", "readxlater_backend_url"]);
+  const token = result.readxlater_auth_token ?? "";
+  const backendUrl = result.readxlater_backend_url ?? "http://localhost:3000";
+  const url = `${backendUrl}/api/tweets/ingest`;
+
+  try {
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 5000);
+    const res = await fetch(url, {
+      method: "POST",
+      headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+      body: JSON.stringify({ tweets: [{ twitter_tweet_id: "test123", author_handle: "test", author_display_name: "Test", text_content: "Test tweet", source_type: "like" }] }),
+      signal: controller.signal,
+    });
+    clearTimeout(timeout);
+    statusEl.textContent = `${res.status === 200 ? "OK" : res.status} → ${url}`;
+  } catch (err) {
+    const msg = String(err);
+    if (msg.includes("abort")) {
+      statusEl.textContent = `Timeout — is ${url} reachable?`;
     } else {
-      statusEl.textContent = `${response?.status === 200 ? "OK" : response?.status} → ${response?.url}`;
+      statusEl.textContent = `Failed: ${msg}`;
     }
-  });
+    statusEl.className = "status error";
+  }
 });
 
 // Check selectors
