@@ -248,7 +248,7 @@ export function LibraryView({ initialTweets, initialCursor }: LibraryViewProps) 
     setCatProgress("Starting AI categorization...");
     let totalCategorized = 0;
     let round = 0;
-    const maxRounds = 10;
+    const maxRounds = 50;
 
     try {
       while (round < maxRounds) {
@@ -263,9 +263,9 @@ export function LibraryView({ initialTweets, initialCursor }: LibraryViewProps) 
         setUncategorizedRemaining(data.remaining ?? 0);
 
         if (data.newCategories?.length > 0) {
-          setCatProgress(`Created categories: ${data.newCategories.join(", ")}. Categorized ${totalCategorized} tweets...`);
+          setCatProgress(`Round ${round + 1}: Created ${data.newCategories.join(", ")}. Total: ${totalCategorized} categorized (${data.remaining} remaining)`);
         } else {
-          setCatProgress(`Categorized ${totalCategorized} tweets...`);
+          setCatProgress(`Round ${round + 1}: +${data.categorized} this round. Total: ${totalCategorized} (${data.remaining} remaining)${data.errors?.length ? ` | ${data.errors.length} errors` : ""}`);
         }
 
         // If nothing was categorized this round, we're done
