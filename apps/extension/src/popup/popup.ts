@@ -72,7 +72,7 @@ document.getElementById("connect-btn")!.addEventListener("click", async () => {
   setStatus("Connected!");
 });
 
-// --- Sync — runs entirely from popup using chrome.tabs + chrome.scripting ---
+// --- Sync — popup opens tab, injects scraper, polls chrome.storage for results ---
 async function runSync(sources: Array<"like" | "bookmark">): Promise<void> {
   disableButtons(true);
   setProgress(5);
@@ -86,7 +86,6 @@ async function runSync(sources: Array<"like" | "bookmark">): Promise<void> {
 
   const token = await getToken();
   const backendUrl = await getBackendUrl();
-  let totalScraped = 0;
   let totalSent = 0;
 
   for (const source of sources) {
@@ -96,21 +95,25 @@ async function runSync(sources: Array<"like" | "bookmark">): Promise<void> {
 
     setStatus(`Opening ${source === "like" ? "likes" : "bookmarks"}...`);
 
+    // Clear previous scraper state
+    await chrome.storage.local.remove("readxlater_scraper");
+
     // Open tab
     const tab = await chrome.tabs.create({ url, active: true });
     if (!tab.id) { setStatus("Failed to open tab", true); continue; }
 
     // Wait for page to load
     await new Promise<void>((resolve) => {
-      chrome.tabs.onUpdated.addListener(function listener(tabId, info) {
+      const listener = (tabId: number, info: chrome.tabs.TabChangeInfo) => {
         if (tabId === tab.id && info.status === "complete") {
           chrome.tabs.onUpdated.removeListener(listener);
           resolve();
         }
-      });
+      };
+      chrome.tabs.onUpdated.addListener(listener);
     });
 
-    setStatus("Page loaded. Injecting scraper...");
+    setStatus("Injecting scraper...");
 
     // Inject scraper
     try {
@@ -119,59 +122,51 @@ async function runSync(sources: Array<"like" | "bookmark">): Promise<void> {
         files: ["dist/scraper.js"],
       });
     } catch (err) {
-      setStatus(`Failed to inject scraper: ${err}`, true);
+      setStatus(`Failed to inject: ${err}`, true);
       try { await chrome.tabs.remove(tab.id); } catch {}
       continue;
     }
 
-    setStatus("Scraping tweets...");
+    // Poll chrome.storage for scraper progress
+    let lastSentIndex = 0;
+    const done = await new Promise<boolean>((resolve) => {
+      const poll = setInterval(async () => {
+        const result = await chrome.storage.local.get("readxlater_scraper");
+        const state = result.readxlater_scraper;
+        if (!state) return;
 
-    // Listen for messages from the scraper
-    const scraperDone = await new Promise<number>((resolve) => {
-      const onMessage = (message: any, sender: chrome.runtime.MessageSender) => {
-        if (sender.tab?.id !== tab.id) return;
+        setStatus(state.status || `Found ${state.count} tweets...`);
+        setProgress(Math.min(90, 5 + (state.count / 10)));
 
-        if (message.type === "TWEETS_SCRAPED") {
-          const tweets = message.tweets as any[];
-          totalScraped += tweets.length;
-          setStatus(`Found ${totalScraped} tweets...`);
-          setProgress(Math.min(90, 5 + (totalScraped / 10)));
-
-          // Send to backend
-          sendBatch(tweets, source, token!, backendUrl).then((sent) => {
-            totalSent += sent;
-          });
+        // Send new tweets to backend in batches of 50
+        const tweets = state.tweets || [];
+        while (lastSentIndex < tweets.length) {
+          const batch = tweets.slice(lastSentIndex, lastSentIndex + 50);
+          lastSentIndex += batch.length;
+          const sent = await sendBatch(batch, source, token!, backendUrl);
+          totalSent += sent;
         }
 
-        if (message.type === "SCRAPE_STATUS") {
-          setStatus(message.message || `Found ${message.count} tweets...`);
+        if (state.done) {
+          clearInterval(poll);
+          resolve(true);
         }
+      }, 1000);
 
-        if (message.type === "SCRAPE_COMPLETE") {
-          chrome.runtime.onMessage.removeListener(onMessage);
-          resolve(message.count);
-        }
-      };
-
-      chrome.runtime.onMessage.addListener(onMessage);
-
-      // Safety timeout — 5 minutes max per source
-      setTimeout(() => {
-        chrome.runtime.onMessage.removeListener(onMessage);
-        resolve(totalScraped);
-      }, 5 * 60 * 1000);
+      // Safety timeout — 5 minutes
+      setTimeout(() => { clearInterval(poll); resolve(false); }, 5 * 60 * 1000);
     });
 
     // Close tab
     try { await chrome.tabs.remove(tab.id); } catch {}
   }
 
-  // Wait a moment for final batches to send
-  await new Promise((r) => setTimeout(r, 2000));
-
   setProgress(100);
-  setStatus(`Done! ${totalScraped} scraped, ${totalSent} sent to backend.`);
+  setStatus(`Done! ${totalSent} tweets sent to backend.`);
   disableButtons(false);
+
+  // Clean up
+  await chrome.storage.local.remove("readxlater_scraper");
 }
 
 async function sendBatch(
