@@ -145,8 +145,20 @@ function setupSyncButton(id: string, sources: Array<"like" | "bookmark">): void 
     const buttons = document.querySelectorAll(".btn") as NodeListOf<HTMLButtonElement>;
     buttons.forEach((b) => (b.disabled = true));
 
-    await sendToBackground({ type: "START_SYNC", sources });
-    statusEl.textContent = "Starting sync...";
+    const result = await sendToBackground({ type: "START_SYNC", sources }) as Record<string, unknown> | null;
+    // Check status immediately after sending
+    setTimeout(() => {
+      chrome.runtime.sendMessage({ type: "GET_STATUS" }, (response) => {
+        chrome.runtime.lastError;
+        if (response?.status?.startsWith("Error")) {
+          statusEl.textContent = response.status;
+          statusEl.className = "status error";
+          buttons.forEach((b) => (b.disabled = false));
+        } else {
+          statusEl.textContent = response?.status || "Starting sync...";
+        }
+      });
+    }, 500);
   });
 }
 
