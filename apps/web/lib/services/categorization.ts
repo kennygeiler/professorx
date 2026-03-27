@@ -223,12 +223,30 @@ export async function categorizeTweets(
 
         let assigned = false;
         for (const catName of catNames) {
-          const catId = categoryNameToId.get(catName.toLowerCase());
+          let catId = categoryNameToId.get(catName.toLowerCase());
           if (!catId) {
-            result.errors.push(
-              `Unknown category "${catName}" for tweet ${assignment.tweet_id}`
-            );
-            continue;
+            // Auto-create new category
+            const colorIdx = categoryNameToId.size % CATEGORY_COLORS.length;
+            const { data: newCat, error: createErr } = await supabase
+              .from('categories')
+              .insert({
+                user_id: userId,
+                name: catName,
+                color: CATEGORY_COLORS[colorIdx],
+                sort_order: categoryNameToId.size,
+              })
+              .select('id')
+              .single();
+
+            if (createErr || !newCat) {
+              result.errors.push(`Failed to create category "${catName}": ${createErr?.message}`);
+              continue;
+            }
+
+            catId = newCat.id;
+            categoryNameToId.set(catName.toLowerCase(), catId);
+            categoryList.push(catName);
+            result.newCategories.push(catName);
           }
 
           const { error: insertError } = await supabase
