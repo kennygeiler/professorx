@@ -48,7 +48,7 @@ export function TweetCard({ tweet, onCategoryChanged }: TweetCardProps) {
   // Visual hierarchy
   const metrics = tweet.metrics as { likes?: number; retweets?: number } | null;
   const likeCount = metrics?.likes ?? 0;
-  const isHighEngagement = likeCount >= 100;
+  const hasMedia = (tweet.media?.length ?? 0) > 0;
   const isBookmark = tweet.source_type === "bookmark";
 
   const handleReclassified = (newCategory: { id: string; name: string; color: string }) => {
@@ -60,11 +60,7 @@ export function TweetCard({ tweet, onCategoryChanged }: TweetCardProps) {
   return (
     <>
       <article
-        className={`relative rounded-xl border bg-zinc-900 p-3 sm:p-4 transition-colors hover:bg-zinc-800/70 ${
-          isHighEngagement
-            ? "border-zinc-700/80 border-l-2 border-l-amber-500/40"
-            : "border-zinc-800"
-        }`}
+        className="relative rounded-xl border border-zinc-800 border-l-2 border-l-[#1d9bf0]/40 bg-zinc-900 p-3 sm:p-4 transition-colors hover:bg-zinc-800/70"
       >
         {/* Category badges — tappable */}
         {tweet.categories.length > 0 && (

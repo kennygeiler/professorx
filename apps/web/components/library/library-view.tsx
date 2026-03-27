@@ -28,6 +28,7 @@ export function LibraryView({ initialTweets, initialCursor }: LibraryViewProps) 
   const { query, setQuery, debouncedQuery } = useSearch(200);
   const [category, setCategory] = useState<string | null>(null);
   const [timeRange, setTimeRange] = useState<TimeRange>("all");
+  const [mediaType, setMediaType] = useState<string | null>(null);
   const [categories, setCategories] = useState<Category[]>([]);
 
   const [tweets, setTweets] = useState(initialTweets);
@@ -36,7 +37,7 @@ export function LibraryView({ initialTweets, initialCursor }: LibraryViewProps) 
   const [filterLoading, setFilterLoading] = useState(false);
   const sentinelRef = useRef<HTMLDivElement>(null);
 
-  const hasFilters = debouncedQuery.length >= 3 || !!category || timeRange !== "all";
+  const hasFilters = debouncedQuery.length >= 3 || !!category || timeRange !== "all" || !!mediaType;
 
   // Fetch categories and uncategorized count on mount
   useEffect(() => {
@@ -65,6 +66,7 @@ export function LibraryView({ initialTweets, initialCursor }: LibraryViewProps) 
     if (debouncedQuery.length >= 3) params.set("q", debouncedQuery);
     if (category) params.set("category", category);
     if (timeRange !== "all") params.set("timeRange", timeRange);
+    if (mediaType) params.set("mediaType", mediaType);
     params.set("limit", "40");
 
     fetch(`/api/tweets/search?${params.toString()}`)
@@ -80,7 +82,7 @@ export function LibraryView({ initialTweets, initialCursor }: LibraryViewProps) 
       });
 
     return () => { cancelled = true; };
-  }, [debouncedQuery, category, timeRange, hasFilters, initialTweets, initialCursor]);
+  }, [debouncedQuery, category, timeRange, mediaType, hasFilters, initialTweets, initialCursor]);
 
   // Infinite scroll
   const loadMore = useCallback(async () => {
@@ -91,6 +93,7 @@ export function LibraryView({ initialTweets, initialCursor }: LibraryViewProps) 
     if (debouncedQuery.length >= 3) params.set("q", debouncedQuery);
     if (category) params.set("category", category);
     if (timeRange !== "all") params.set("timeRange", timeRange);
+    if (mediaType) params.set("mediaType", mediaType);
 
     const endpoint = hasFilters ? "/api/tweets/search" : "/api/tweets";
 
@@ -122,6 +125,7 @@ export function LibraryView({ initialTweets, initialCursor }: LibraryViewProps) 
     setQuery("");
     setCategory(null);
     setTimeRange("all");
+    setMediaType(null);
   };
 
   const [categorizing, setCategorizing] = useState(false);
@@ -200,6 +204,7 @@ export function LibraryView({ initialTweets, initialCursor }: LibraryViewProps) 
       if (debouncedQuery.length >= 3) params.set("q", debouncedQuery);
       if (category) params.set("category", category);
       if (timeRange !== "all") params.set("timeRange", timeRange);
+      if (mediaType) params.set("mediaType", mediaType);
       const endpoint = hasFilters ? "/api/tweets/search" : "/api/tweets";
       const tweetsRes = await fetch(`${endpoint}?${params.toString()}`);
       if (tweetsRes.ok) {
@@ -267,8 +272,8 @@ export function LibraryView({ initialTweets, initialCursor }: LibraryViewProps) 
   return (
     <div>
       {/* Filter bar */}
-      <div className="sticky top-0 z-10 bg-zinc-950/95 pb-4 pt-2 backdrop-blur">
-        <div className="flex flex-col gap-3">
+      <div className="sticky top-0 z-10 bg-zinc-950/95 pb-2 pt-1 sm:pb-4 sm:pt-2 backdrop-blur">
+        <div className="flex flex-col gap-2 sm:gap-3">
           <div className="flex items-center gap-2">
             <div className="flex-1">
               <SearchBar value={query} onChange={setQuery} />
@@ -342,6 +347,29 @@ export function LibraryView({ initialTweets, initialCursor }: LibraryViewProps) 
               </div>
             )}
 
+            {/* Media type filters */}
+            <div className="flex gap-1.5 overflow-x-auto scrollbar-none">
+              {[
+                { value: null, label: "All types" },
+                { value: "photo", label: "Photos" },
+                { value: "video", label: "Videos" },
+                { value: "quote", label: "Quotes" },
+                { value: "text", label: "Text only" },
+              ].map((opt) => (
+                <button
+                  key={opt.value ?? "all"}
+                  onClick={() => setMediaType(opt.value)}
+                  className={`shrink-0 rounded-full px-2.5 py-1 text-xs font-medium transition-colors ${
+                    mediaType === opt.value
+                      ? "bg-[#1d9bf0]/15 text-[#1d9bf0] border border-[#1d9bf0]/30"
+                      : "text-zinc-500 hover:text-zinc-300"
+                  }`}
+                >
+                  {opt.label}
+                </button>
+              ))}
+            </div>
+
             <TimeSlider selected={timeRange} onSelect={setTimeRange} />
 
             {hasActiveFilters && (
@@ -385,7 +413,7 @@ export function LibraryView({ initialTweets, initialCursor }: LibraryViewProps) 
 
       {/* Tweet list */}
       {filterLoading ? (
-        <div className="flex flex-col gap-3">
+        <div className="flex flex-col gap-2 sm:gap-3">
           <TweetSkeleton />
           <TweetSkeleton />
           <TweetSkeleton />
@@ -411,7 +439,7 @@ export function LibraryView({ initialTweets, initialCursor }: LibraryViewProps) 
           )}
         </div>
       ) : (
-        <div className="flex flex-col gap-3">
+        <div className="flex flex-col gap-2 sm:gap-3">
           {tweets.map((tweet) => (
             <TweetCard
               key={tweet.id}

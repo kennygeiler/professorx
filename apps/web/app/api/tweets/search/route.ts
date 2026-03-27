@@ -40,6 +40,7 @@ export async function GET(request: NextRequest) {
   const timeRange = searchParams.get("timeRange") ?? "all";
   const cursor = searchParams.get("cursor");
   const tweetIdsParam = searchParams.get("tweetIds");
+  const mediaTypeFilter = searchParams.get("mediaType");
   const limit = Math.min(
     parseInt(searchParams.get("limit") ?? "20", 10),
     50
@@ -104,6 +105,17 @@ export async function GET(request: NextRequest) {
   const sinceDate = getDateFromTimeRange(timeRange);
   if (sinceDate) {
     query = query.lte("tweet_created_at", sinceDate.toISOString());
+  }
+
+  // Media type filter
+  if (mediaTypeFilter === "photo") {
+    query = query.filter("media", "cs", '[{"type":"photo"}]');
+  } else if (mediaTypeFilter === "video") {
+    query = query.or('media.cs.[{"type":"video"}],media.cs.[{"type":"animated_gif"}]');
+  } else if (mediaTypeFilter === "quote") {
+    query = query.eq("tweet_type", "quote");
+  } else if (mediaTypeFilter === "text") {
+    query = query.filter("media", "eq", "[]");
   }
 
   // Cursor pagination

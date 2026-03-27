@@ -39,31 +39,48 @@ export async function categorizeTweets(
   };
 
   // Fetch tweets to categorize
-  let tweetsQuery = supabase
-    .from('tweets')
-    .select('id, text_content, author_handle')
-    .eq('user_id', userId);
+  let tweets: { id: string; text_content: string; author_handle: string | null }[] | null = null;
+  let tweetsError: { message: string } | null = null;
 
   if (tweetIds && tweetIds.length > 0) {
-    tweetsQuery = tweetsQuery.in('id', tweetIds);
+    const res = await supabase
+      .from('tweets')
+      .select('id, text_content, author_handle')
+      .eq('user_id', userId)
+      .in('id', tweetIds);
+    tweets = res.data;
+    tweetsError = res.error;
   } else {
-    // Get uncategorized tweets: tweets that have no entry in tweet_categories
-    // First get all tweet IDs that already have categories (any assignment type)
-    const { data: categorizedTweetIds } = await supabase
-      .from('tweet_categories')
-      .select('tweet_id')
-      .limit(10000);
+    // Fetch a batch of tweets, then filter out ones that already have categories
+    // This avoids a huge NOT IN clause that can exceed URL limits
+    const { data: candidateTweets, error: candidateError } = await supabase
+      .from('tweets')
+      .select('id, text_content, author_handle')
+      .eq('user_id', userId)
+      .order('created_at', { ascending: true })
+      .limit(200);
 
-    const excludeIds = (categorizedTweetIds ?? []).map((tc) => tc.tweet_id);
+    if (candidateError) {
+      tweetsError = candidateError;
+    } else if (candidateTweets && candidateTweets.length > 0) {
+      // Check which of these candidates already have categories
+      const candidateIds = candidateTweets.map((t) => t.id);
+      const { data: existingCats } = await supabase
+        .from('tweet_categories')
+        .select('tweet_id')
+        .in('tweet_id', candidateIds);
 
-    if (excludeIds.length > 0) {
-      tweetsQuery = tweetsQuery.not('id', 'in', `(${excludeIds.join(',')})`);
+      const categorizedSet = new Set(
+        (existingCats ?? []).map((tc) => tc.tweet_id)
+      );
+
+      tweets = candidateTweets
+        .filter((t) => !categorizedSet.has(t.id))
+        .slice(0, 30);
+    } else {
+      tweets = [];
     }
   }
-
-  tweetsQuery = tweetsQuery.limit(30);
-
-  const { data: tweets, error: tweetsError } = await tweetsQuery;
 
   if (tweetsError) {
     result.errors.push(`Failed to fetch tweets: ${tweetsError.message}`);
@@ -232,16 +249,33 @@ export async function categorizeTweets(
   }
 
   // Count remaining uncategorized tweets
-  const { data: nowCategorizedIds } = await supabase
-    .from('tweet_categories')
-    .select('tweet_id')
-    .limit(10000);
-  const nowExcludeIds = new Set((nowCategorizedIds ?? []).map((tc) => tc.tweet_id));
   const { count: totalUserTweets } = await supabase
     .from('tweets')
     .select('id', { count: 'exact', head: true })
     .eq('user_id', userId);
-  result.remaining = Math.max(0, (totalUserTweets ?? 0) - nowExcludeIds.size);
+
+  // Count distinct categorized tweets for this user
+  const { data: userTweets } = await supabase
+    .from('tweets')
+    .select('id')
+    .eq('user_id', userId);
+  const userTweetIds = (userTweets ?? []).map((t) => t.id);
+
+  let categorizedCount = 0;
+  if (userTweetIds.length > 0) {
+    // Check in chunks of 200 to avoid URL limits
+    for (let i = 0; i < userTweetIds.length; i += 200) {
+      const chunk = userTweetIds.slice(i, i + 200);
+      const { data: catChunk } = await supabase
+        .from('tweet_categories')
+        .select('tweet_id')
+        .in('tweet_id', chunk);
+      const uniqueInChunk = new Set((catChunk ?? []).map((tc) => tc.tweet_id));
+      categorizedCount += uniqueInChunk.size;
+    }
+  }
+
+  result.remaining = Math.max(0, (totalUserTweets ?? 0) - categorizedCount);
 
   return result;
 }
