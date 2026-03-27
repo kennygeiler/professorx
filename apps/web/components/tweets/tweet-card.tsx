@@ -143,7 +143,7 @@ export function TweetCard({ tweet, onCategoryChanged }: TweetCardProps) {
             {/* Media */}
             {tweet.media && tweet.media.length > 0 && (
               <div className="mt-3">
-                <TweetMedia media={tweet.media} />
+                <TweetMedia media={tweet.media} tweetUrl={`https://x.com/${tweet.author_handle}/status/${tweet.twitter_tweet_id}`} />
               </div>
             )}
 

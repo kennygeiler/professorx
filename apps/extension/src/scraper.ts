@@ -136,12 +136,16 @@ interface ScrapedTweet {
           media.push({ type: "photo", url: src });
         }
       }
-      // Videos
+      // Videos/GIFs — can only get the poster (thumbnail), not the actual video URL
+      // Twitter uses blob: URLs for video playback which don't work outside the page
       for (const vid of mainArea.querySelectorAll("video")) {
         if (quotedEl?.contains(vid)) continue;
-        const src = vid.getAttribute("src") ?? (vid.querySelector("source") as HTMLSourceElement)?.getAttribute("src") ?? "";
         const poster = vid.getAttribute("poster") ?? "";
-        if (src || poster) media.push({ type: "video", url: src || poster, preview_url: poster || undefined });
+        if (poster && poster.startsWith("http")) {
+          // Check if it's a GIF (loops) or video
+          const isGif = vid.getAttribute("loop") !== null || vid.closest('[data-testid="tweetPhoto"]') !== null;
+          media.push({ type: isGif ? "animated_gif" : "video", url: poster, preview_url: poster });
+        }
       }
 
       // Metrics
@@ -182,9 +186,11 @@ interface ScrapedTweet {
           }
         }
         for (const vid of quotedEl.querySelectorAll("video")) {
-          const src = vid.getAttribute("src") ?? "";
           const poster = vid.getAttribute("poster") ?? "";
-          if (src || poster) qtMedia.push({ type: "video", url: src || poster, preview_url: poster || undefined });
+          if (poster && poster.startsWith("http")) {
+            const isGif = vid.getAttribute("loop") !== null;
+            qtMedia.push({ type: isGif ? "animated_gif" : "video", url: poster, preview_url: poster });
+          }
         }
 
         quotedTweet = { text: qtText, author_handle: qtHandle, author_display_name: qtName, ...(qtMedia.length > 0 ? { media: qtMedia } : {}) };
@@ -210,7 +216,7 @@ interface ScrapedTweet {
           tweets: tweets.map(t => ({
             ...t,
             author_avatar_url: t.author_avatar_url?.startsWith("http") ? t.author_avatar_url : null,
-            media: t.media.filter(m => m.url.startsWith("http")),
+            media: t.media.filter(m => m.url && m.url.startsWith("http") && !m.url.startsWith("blob:")),
             source_type: sourceType,
           })),
         }),
