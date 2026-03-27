@@ -49,8 +49,8 @@ async function startSync(source: "like" | "bookmark"): Promise<void> {
     url = "https://x.com/i/bookmarks";
   }
 
-  // Open a new tab
-  const tab = await chrome.tabs.create({ url, active: false });
+  // Open tab as active — Twitter won't render tweets in background tabs
+  const tab = await chrome.tabs.create({ url, active: true });
   state.tabId = tab.id ?? null;
 
   // Wait for page to load, then inject scraper

@@ -5,9 +5,9 @@ import { MAX_INGEST_BATCH_SIZE } from '@shared/constants';
 import { ingestTweets } from '@/lib/services/tweet-ingestion';
 
 function getJwtSecret(): Uint8Array {
-  const secret = process.env.NEXTAUTH_SECRET;
+  const secret = process.env.AUTH_SECRET ?? process.env.NEXTAUTH_SECRET;
   if (!secret) {
-    throw new Error('NEXTAUTH_SECRET is not configured');
+    throw new Error('AUTH_SECRET / NEXTAUTH_SECRET is not configured');
   }
   return new TextEncoder().encode(secret);
 }
