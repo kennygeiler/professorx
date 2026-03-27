@@ -19,18 +19,33 @@ export const authConfig: NextAuthConfig = {
       return true;
     },
     async session({ session, token }) {
-      if (token.sub) {
+      // Use the stable DB user ID (resolved from twitter_id) instead of token.sub
+      // which can change between sessions
+      if (token.stableUserId) {
+        session.user.id = token.stableUserId as string;
+      } else if (token.sub) {
         session.user.id = token.sub;
       }
       (session as any).accessToken = token.accessToken;
       (session as any).twitterId = token.twitterId;
       return session;
     },
-    async jwt({ token, account, profile }) {
+    async jwt({ token, account }) {
       if (account) {
         token.accessToken = account.access_token;
         token.refreshToken = account.refresh_token;
         token.twitterId = account.providerAccountId;
+
+        // Resolve stable user ID from DB on first login
+        try {
+          const { getStableUserId } = await import("@/lib/auth/get-user-id");
+          token.stableUserId = await getStableUserId(
+            token.sub ?? account.providerAccountId,
+            account.providerAccountId
+          );
+        } catch {
+          token.stableUserId = token.sub;
+        }
       }
       return token;
     },

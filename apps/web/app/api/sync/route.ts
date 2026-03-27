@@ -39,7 +39,7 @@ export async function POST(request: Request) {
 
   const userId = session.user.id;
 
-  // Ensure user exists in DB
+  // Ensure user exists in DB (session.user.id is stable via twitter_id lookup)
   const supabase = createAdminClient();
   await supabase.from("users").upsert(
     {
