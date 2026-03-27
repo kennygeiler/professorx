@@ -128,6 +128,12 @@ export async function POST(request: Request) {
         { status: 401 }
       );
     }
+    if (errorMsg.startsWith("RATE_LIMITED:")) {
+      return NextResponse.json(
+        { error: errorMsg.replace("RATE_LIMITED: ", "") },
+        { status: 429 }
+      );
+    }
     return NextResponse.json(
       { error: `Sync failed: ${errorMsg}` },
       { status: 500 }

@@ -84,12 +84,18 @@ export async function GET(request: NextRequest) {
     .order("tweet_created_at", { ascending: false, nullsFirst: false })
     .limit(limit + 1);
 
-  // Full-text search filter
+  // Full-text search filter (with author fallback for @ queries)
   if (q.length >= 3) {
-    query = query.textSearch("search_vector", q, {
-      type: "plain",
-      config: "english",
-    });
+    const isAuthorSearch = q.startsWith("@");
+    if (isAuthorSearch) {
+      const handle = q.replace(/^@/, "").toLowerCase();
+      query = query.or(`author_handle.ilike.%${handle}%,author_display_name.ilike.%${handle}%`);
+    } else {
+      query = query.textSearch("search_vector", q, {
+        type: "plain",
+        config: "english",
+      });
+    }
   }
 
   // Specific tweet IDs filter (from AI search)
@@ -108,7 +114,35 @@ export async function GET(request: NextRequest) {
     query = query.lte("tweet_created_at", sinceDate.toISOString());
   }
 
-  // Media type filter
+  // Uncategorized filter
+  if (mediaTypeFilter === "uncategorized") {
+    // Get tweet IDs that have NO category
+    const { data: allUserTweets } = await supabase
+      .from("tweets")
+      .select("id")
+      .eq("user_id", session.user.id)
+      .limit(500);
+    const allIds = (allUserTweets ?? []).map((t) => t.id);
+    if (allIds.length > 0) {
+      // Check which have categories in chunks
+      const categorizedIds = new Set<string>();
+      for (let i = 0; i < allIds.length; i += 200) {
+        const chunk = allIds.slice(i, i + 200);
+        const { data: catChunk } = await supabase
+          .from("tweet_categories")
+          .select("tweet_id")
+          .in("tweet_id", chunk);
+        for (const tc of catChunk ?? []) categorizedIds.add(tc.tweet_id);
+      }
+      const uncatIds = allIds.filter((id) => !categorizedIds.has(id));
+      if (uncatIds.length === 0) {
+        return NextResponse.json({ tweets: [], nextCursor: null, totalCount: 0 });
+      }
+      query = query.in("id", uncatIds);
+    }
+  }
+
+  // Media type filter (skip if uncategorized — that's handled above)
   if (mediaTypeFilter === "photo") {
     query = query.filter("media", "cs", '[{"type":"photo"}]');
   } else if (mediaTypeFilter === "video") {

@@ -158,7 +158,7 @@ export function Header() {
       {/* Main bar */}
       <div className="flex h-12 items-center justify-between px-4">
         <Link href="/" className="text-base font-bold tracking-tight text-zinc-100">
-          ProfessorX
+          ItoldYou
         </Link>
 
         <div className="flex items-center gap-1">

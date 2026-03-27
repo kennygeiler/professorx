@@ -14,7 +14,7 @@ export default function LoginPage() {
             </svg>
           </div>
           <h1 className="text-3xl font-bold tracking-tight text-zinc-100">
-            ProfessorX
+            ItoldYouIwouldReadthisLater
           </h1>
           <p className="text-sm leading-relaxed text-zinc-400">
             Your Twitter likes and bookmarks, organized and searchable with AI.

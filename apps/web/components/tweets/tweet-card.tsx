@@ -128,6 +128,13 @@ export function TweetCard({ tweet, onCategoryChanged }: TweetCardProps) {
               )}
             </div>
 
+            {/* Reply context */}
+            {tweet.tweet_type === "reply" && (
+              <p className="mt-0.5 text-xs text-zinc-500">
+                Replying to a tweet
+              </p>
+            )}
+
             {/* Tweet text */}
             <p className="mt-1 whitespace-pre-wrap text-sm leading-relaxed text-zinc-200 line-clamp-6">
               {tweet.text_content}

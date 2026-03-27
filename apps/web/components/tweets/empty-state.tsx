@@ -48,10 +48,20 @@ export function EmptyState() {
           if (res.status === 401) {
             setStatusText("Session expired. Please log out and log back in.");
             setSyncing(false);
+            setPhase("choose");
+            return;
+          }
+          if (res.status === 429) {
+            setStatusText(`Rate limited by Twitter. ${totalInserted > 0 ? `${totalInserted} tweets synced so far. ` : ""}Wait a few minutes and try again.`);
+            // Still categorize what we have
+            if (totalInserted > 0) break;
+            setSyncing(false);
+            setPhase("choose");
             return;
           }
           setStatusText(`Error: ${data.error}`);
           setSyncing(false);
+          setPhase("choose");
           return;
         }
 

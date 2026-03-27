@@ -287,7 +287,8 @@ export function LibraryView({ initialTweets, initialCursor }: LibraryViewProps) 
         <div className="flex flex-col gap-2 sm:gap-3">
           <SearchBar value={query} onChange={setQuery} />
 
-          {/* AI Search button */}
+          {/* AI Search button — only shows when there's a query */}
+          {(debouncedQuery.length >= 3 || aiSearching) && (
           <button
             onClick={runAiSearch}
             disabled={aiSearching || debouncedQuery.length < 3}
@@ -312,6 +313,7 @@ export function LibraryView({ initialTweets, initialCursor }: LibraryViewProps) 
               )}
             </span>
           </button>
+          )}
 
           {/* Tweet count + filter toggle */}
           <div className="flex items-center justify-between">
@@ -366,6 +368,7 @@ export function LibraryView({ initialTweets, initialCursor }: LibraryViewProps) 
               { value: "photo", label: "Photos" },
               { value: "video", label: "Videos" },
               { value: "quote", label: "Quotes" },
+              { value: "uncategorized", label: "Uncategorized" },
             ].map((opt) => (
               <button
                 key={opt.value ?? "all"}

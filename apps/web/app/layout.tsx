@@ -14,8 +14,19 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: 'ProfessorX',
-  description: 'Organize your Twitter likes and bookmarks with AI categorization',
+  title: 'ItoldYouIwouldReadthisLater',
+  description: 'Your Twitter likes and bookmarks, organized and searchable with AI. Never lose a tweet again.',
+  openGraph: {
+    title: 'ItoldYouIwouldReadthisLater',
+    description: 'Your Twitter likes and bookmarks, organized and searchable with AI.',
+    type: 'website',
+    siteName: 'ItoldYouIwouldReadthisLater',
+  },
+  twitter: {
+    card: 'summary',
+    title: 'ItoldYouIwouldReadthisLater',
+    description: 'Your Twitter likes and bookmarks, organized and searchable with AI.',
+  },
 };
 
 export const viewport: Viewport = {

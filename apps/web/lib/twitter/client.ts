@@ -95,6 +95,9 @@ async function twitterGet(
     if (res.status === 401 || res.status === 403) {
       throw new Error(`TOKEN_EXPIRED: Your Twitter session has expired. Please log out and log back in.`);
     }
+    if (res.status === 429) {
+      throw new Error(`RATE_LIMITED: Twitter rate limit reached. Please wait a few minutes and try again.`);
+    }
     throw new Error(`Twitter API error: ${res.status} - ${errorBody}`);
   }
 
