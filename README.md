@@ -186,10 +186,7 @@ two search modes:
 **AI semantic search** — type a natural language query like "find tweets that are sexy" or "movie files" and click "Search with AI." GPT-4o-mini reads your tweets in batches of 50 and returns the ones that semantically match your intent, even if the exact words aren't there.
 
 ![ai search](assets/screenshots/ai-search.png)
-*AI semantic search in progress — searching "movie files" across 1,030 tweets.*
-
-![ai search results](assets/screenshots/ai-search-results.png)
-*AI search results for "find tweets that are sexy" — finds tweets by meaning, not just keywords.*
+*AI semantic search — "find tweets that are hilarious" returns comedy tweets by meaning, not keywords. the AI reads your tweets and matches intent.*
 
 ### filters
 
