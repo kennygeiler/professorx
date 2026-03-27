@@ -51,9 +51,9 @@ export function TweetCard({ tweet, onCategoryChanged }: TweetCardProps) {
   const hasMedia = (tweet.media?.length ?? 0) > 0;
   const isBookmark = tweet.source_type === "bookmark";
 
-  const handleReclassified = (newCategory: { id: string; name: string; color: string }) => {
+  const handleReclassified = (newCategories: Array<{ id: string; name: string; color: string }>) => {
     if (onCategoryChanged) {
-      onCategoryChanged(tweet.id, [newCategory]);
+      onCategoryChanged(tweet.id, newCategories);
     }
   };
 

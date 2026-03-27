@@ -5,6 +5,13 @@ import { getAiMemory } from './ai-memory';
 
 const BATCH_SIZE = 10;
 
+const CATEGORY_COLORS = [
+  "#3b82f6", "#22c55e", "#f59e0b", "#ef4444", "#a855f7",
+  "#ec4899", "#06b6d4", "#6366f1", "#14b8a6", "#f97316",
+  "#f43f5e", "#8b5cf6", "#10b981", "#e879f9", "#0ea5e9",
+  "#84cc16", "#fb923c", "#64748b",
+];
+
 export interface CategorizationResult {
   categorized: number;
   remaining: number;
@@ -14,7 +21,9 @@ export interface CategorizationResult {
 
 interface AiAssignment {
   tweet_id: string;
-  category: string;
+  categories: string[];
+  // Legacy single-category fallback
+  category?: string;
   confidence: number;
 }
 
@@ -162,11 +171,13 @@ export async function categorizeTweets(
         // Create the suggested categories
         for (const catName of suggestion.suggested_categories) {
           if (!categoryNameToId.has(catName)) {
+            const colorIdx = categoryNameToId.size % CATEGORY_COLORS.length;
             const { data: newCat, error: catError } = await supabase
               .from('categories')
               .insert({
                 user_id: userId,
                 name: catName,
+                color: CATEGORY_COLORS[colorIdx],
                 sort_order: categoryNameToId.size,
               })
               .select('id')
@@ -188,42 +199,54 @@ export async function categorizeTweets(
         assignments = suggestion.assignments;
       }
 
-      // Insert tweet_categories records
+      // Insert tweet_categories records (supports 1-2 categories per tweet)
       for (const assignment of assignments) {
-        const catId = categoryNameToId.get(assignment.category);
-        if (!catId) {
-          result.errors.push(
-            `Unknown category "${assignment.category}" for tweet ${assignment.tweet_id}`
-          );
-          continue;
-        }
+        // Support both new multi-category and legacy single-category format
+        const catNames = assignment.categories?.length
+          ? assignment.categories.slice(0, 2)
+          : assignment.category
+            ? [assignment.category]
+            : [];
 
-        const { error: insertError } = await supabase
-          .from('tweet_categories')
-          .insert({
-            tweet_id: assignment.tweet_id,
-            category_id: catId,
-            assigned_by: 'ai',
-            confidence: assignment.confidence,
-          });
-
-        if (insertError) {
-          // Skip duplicates silently
-          if (!insertError.message.includes('duplicate')) {
+        let assigned = false;
+        for (const catName of catNames) {
+          const catId = categoryNameToId.get(catName);
+          if (!catId) {
             result.errors.push(
-              `Failed to assign tweet ${assignment.tweet_id}: ${insertError.message}`
+              `Unknown category "${catName}" for tweet ${assignment.tweet_id}`
             );
+            continue;
           }
-          continue;
+
+          const { error: insertError } = await supabase
+            .from('tweet_categories')
+            .insert({
+              tweet_id: assignment.tweet_id,
+              category_id: catId,
+              assigned_by: 'ai',
+              confidence: assignment.confidence,
+            });
+
+          if (insertError) {
+            if (!insertError.message.includes('duplicate')) {
+              result.errors.push(
+                `Failed to assign tweet ${assignment.tweet_id}: ${insertError.message}`
+              );
+            }
+            continue;
+          }
+          assigned = true;
         }
 
-        // Update ai_confidence on the tweet
-        await supabase
-          .from('tweets')
-          .update({ ai_confidence: assignment.confidence })
-          .eq('id', assignment.tweet_id);
+        if (assigned) {
+          // Update ai_confidence on the tweet
+          await supabase
+            .from('tweets')
+            .update({ ai_confidence: assignment.confidence })
+            .eq('id', assignment.tweet_id);
 
-        result.categorized += 1;
+          result.categorized += 1;
+        }
       }
     } catch (err) {
       const message =

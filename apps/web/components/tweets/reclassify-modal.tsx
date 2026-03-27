@@ -17,7 +17,7 @@ interface ReclassifyModalProps {
   currentCategoryId: string;
   currentCategoryName: string;
   onClose: () => void;
-  onReclassified?: (newCategory: { id: string; name: string; color: string }) => void;
+  onReclassified?: (newCategories: Array<{ id: string; name: string; color: string }>) => void;
 }
 
 export function ReclassifyModal({
@@ -30,7 +30,7 @@ export function ReclassifyModal({
 }: ReclassifyModalProps) {
   const [categories, setCategories] = useState<Category[]>([]);
   const [loading, setLoading] = useState(true);
-  const [selectedCategory, setSelectedCategory] = useState<Category | null>(null);
+  const [selectedCategories, setSelectedCategories] = useState<Category[]>([]);
   const [step, setStep] = useState<"pick" | "reason" | "success">("pick");
   const [reason, setReason] = useState("");
   const [skipAlways, setSkipAlways] = useState(false);
@@ -81,33 +81,60 @@ export function ReclassifyModal({
     setTimeout(onClose, 200);
   };
 
-  const handleSelectCategory = (cat: Category) => {
-    setSelectedCategory(cat);
+  const toggleCategory = (cat: Category) => {
+    setSelectedCategories((prev) => {
+      const exists = prev.find((c) => c.id === cat.id);
+      if (exists) return prev.filter((c) => c.id !== cat.id);
+      if (prev.length >= 2) return [prev[1], cat]; // Replace oldest
+      return [...prev, cat];
+    });
+  };
+
+  const confirmSelection = () => {
+    if (selectedCategories.length === 0) return;
     const shouldSkip = localStorage.getItem(SKIP_ALWAYS_KEY) === "true";
     if (shouldSkip) {
-      submitCorrection(cat, "");
+      submitCorrection("");
     } else {
       setStep("reason");
     }
   };
 
-  const submitCorrection = async (cat: Category, userReason: string) => {
+  const submitCorrection = async (userReason: string) => {
+    if (selectedCategories.length === 0) return;
     setSubmitting(true);
     try {
+      // Submit correction for the first selected category
+      const primary = selectedCategories[0];
       const res = await fetch("/api/corrections", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           tweetId,
           originalCategory: currentCategoryName,
-          correctedCategoryId: cat.id,
+          correctedCategoryId: primary.id,
           reason: userReason || undefined,
         }),
       });
 
+      // If second category selected, add it too
+      if (selectedCategories.length > 1) {
+        const secondary = selectedCategories[1];
+        await fetch("/api/corrections", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            tweetId,
+            originalCategory: currentCategoryName,
+            correctedCategoryId: secondary.id,
+            reason: userReason || undefined,
+          }),
+        });
+      }
+
       if (res.ok) {
         setStep("success");
-        onReclassified?.({ id: cat.id, name: cat.name, color: cat.color });
+        onReclassified?.(selectedCategories.map((c) => ({ id: c.id, name: c.name, color: c.color })));
         setTimeout(handleClose, 800);
       }
     } catch {
@@ -118,16 +145,12 @@ export function ReclassifyModal({
   };
 
   const handleSkip = () => {
-    if (selectedCategory) submitCorrection(selectedCategory, "");
+    submitCorrection("");
   };
 
   const handleSkipAlwaysChange = (checked: boolean) => {
     setSkipAlways(checked);
     localStorage.setItem(SKIP_ALWAYS_KEY, checked ? "true" : "false");
-  };
-
-  const handleSubmitReason = () => {
-    if (selectedCategory) submitCorrection(selectedCategory, reason);
   };
 
   const otherCategories = categories.filter((c) => c.id !== currentCategoryId);
@@ -190,7 +213,7 @@ export function ReclassifyModal({
               >
                 {currentCategoryName}
               </span>
-              . Pick a new category:
+              . Pick up to 2 categories:
             </p>
 
             {/* Search (for many categories) */}
@@ -221,29 +244,46 @@ export function ReclassifyModal({
               </p>
             ) : (
               <div className="max-h-64 space-y-1 overflow-y-auto overscroll-contain">
-                {filteredCategories.map((cat) => (
-                  <button
-                    key={cat.id}
-                    type="button"
-                    onClick={() => handleSelectCategory(cat)}
-                    className="flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-left transition-all hover:bg-zinc-800 active:scale-[0.98]"
-                  >
-                    <span
-                      className="h-3 w-3 shrink-0 rounded-full ring-2 ring-transparent"
-                      style={{ backgroundColor: cat.color }}
-                    />
-                    <span className="flex-1 text-sm font-medium text-zinc-100">
-                      {cat.name}
-                    </span>
-                    <span className="text-xs tabular-nums text-zinc-500">
-                      {cat.tweet_count}
-                    </span>
-                  </button>
-                ))}
+                {filteredCategories.map((cat) => {
+                  const isSelected = selectedCategories.some((c) => c.id === cat.id);
+                  return (
+                    <button
+                      key={cat.id}
+                      type="button"
+                      onClick={() => toggleCategory(cat)}
+                      className={`flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-left transition-all active:scale-[0.98] ${
+                        isSelected ? "bg-zinc-800 ring-1 ring-zinc-600" : "hover:bg-zinc-800"
+                      }`}
+                    >
+                      <span
+                        className="h-3 w-3 shrink-0 rounded-full"
+                        style={{ backgroundColor: cat.color }}
+                      />
+                      <span className="flex-1 text-sm font-medium text-zinc-100">
+                        {cat.name}
+                      </span>
+                      <span className="text-xs tabular-nums text-zinc-500">
+                        {cat.tweet_count}
+                      </span>
+                      {isSelected && (
+                        <svg className="h-4 w-4 text-emerald-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+                          <path strokeLinecap="round" strokeLinejoin="round" d="M4.5 12.75l6 6 9-13.5" />
+                        </svg>
+                      )}
+                    </button>
+                  );
+                })}
               </div>
             )}
 
-            <div className="mt-4 flex justify-end">
+            <div className="mt-4 flex gap-2">
+              <button
+                onClick={confirmSelection}
+                disabled={selectedCategories.length === 0}
+                className="rounded-lg bg-zinc-100 px-4 py-2 text-sm font-medium text-zinc-900 transition-colors hover:bg-white disabled:opacity-50"
+              >
+                Confirm{selectedCategories.length > 0 ? ` (${selectedCategories.length})` : ""}
+              </button>
               <button
                 onClick={handleClose}
                 className="rounded-lg bg-zinc-800 px-4 py-2 text-sm font-medium text-zinc-400 transition-colors hover:bg-zinc-700 hover:text-zinc-300"
@@ -254,13 +294,16 @@ export function ReclassifyModal({
           </>
         )}
 
-        {step === "reason" && selectedCategory && (
+        {step === "reason" && selectedCategories.length > 0 && (
           <>
             <h2 className="mb-1 text-lg font-semibold text-zinc-100">
               Why{" "}
-              <span style={{ color: selectedCategory.color }}>
-                {selectedCategory.name}
-              </span>
+              {selectedCategories.map((c, i) => (
+                <span key={c.id}>
+                  {i > 0 && " & "}
+                  <span style={{ color: c.color }}>{c.name}</span>
+                </span>
+              ))}
               ?
             </h2>
             <p className="mb-4 text-sm text-zinc-400">
@@ -291,7 +334,7 @@ export function ReclassifyModal({
 
             <div className="mt-4 flex gap-2">
               <button
-                onClick={handleSubmitReason}
+                onClick={() => submitCorrection(reason)}
                 disabled={submitting}
                 className="rounded-lg bg-zinc-100 px-4 py-2 text-sm font-medium text-zinc-900 transition-colors hover:bg-white disabled:opacity-50"
               >
@@ -307,7 +350,7 @@ export function ReclassifyModal({
               <button
                 onClick={() => {
                   setStep("pick");
-                  setSelectedCategory(null);
+                  setSelectedCategories([]);
                   setReason("");
                 }}
                 className="rounded-lg px-4 py-2 text-sm font-medium text-zinc-500 transition-colors hover:text-zinc-300"
@@ -337,9 +380,12 @@ export function ReclassifyModal({
             </div>
             <p className="text-sm font-medium text-zinc-100">
               Moved to{" "}
-              <span style={{ color: selectedCategory?.color }}>
-                {selectedCategory?.name}
-              </span>
+              {selectedCategories.map((c, i) => (
+                <span key={c.id}>
+                  {i > 0 && " & "}
+                  <span style={{ color: c.color }}>{c.name}</span>
+                </span>
+              ))}
             </p>
             <p className="mt-1 text-xs text-zinc-500">
               The AI will learn from this

@@ -18,14 +18,14 @@ export function buildCategorizationPrompt(
 
   // --- System instructions ---
   if (hasCategories) {
-    prompt += `You are a tweet categorization assistant. Your job is to assign each tweet to the single most appropriate category from the user's category list.\n\n`;
+    prompt += `You are a tweet categorization assistant. Assign each tweet to 1 or 2 categories from the user's list. Use 2 categories only when a tweet clearly spans two topics. Most tweets should get 1 category.\n\n`;
     prompt += `## Categories\n`;
     prompt += categories.map((c) => `- ${c}`).join('\n');
     prompt += '\n\n';
   } else {
     prompt += `You are a tweet categorization assistant. The user has no categories yet. Analyze the tweets below and:\n`;
     prompt += `1. Suggest 5-7 initial categories that best group these tweets.\n`;
-    prompt += `2. Assign each tweet to one of your suggested categories.\n\n`;
+    prompt += `2. Assign each tweet to 1 or 2 of your suggested categories.\n\n`;
     prompt += `Choose category names that are concise, descriptive, and broadly useful (e.g., "Tech", "Politics", "Humor", "Sports", "Science").\n\n`;
   }
 
@@ -66,15 +66,15 @@ export function buildCategorizationPrompt(
     prompt += `## Response Format\n`;
     prompt += `Respond with ONLY a JSON array. Each element must have:\n`;
     prompt += `- "tweet_id": the tweet ID from the brackets above\n`;
-    prompt += `- "category": one of the categories listed above (exact match)\n`;
+    prompt += `- "categories": array of 1-2 category names from the list above (exact match)\n`;
     prompt += `- "confidence": a number from 0.0 to 1.0\n\n`;
-    prompt += `Example: [{"tweet_id":"abc123","category":"Tech","confidence":0.92}]\n`;
+    prompt += `Example: [{"tweet_id":"abc123","categories":["Tech"],"confidence":0.92},{"tweet_id":"def456","categories":["Tech","Finance"],"confidence":0.85}]\n`;
   } else {
     prompt += `## Response Format\n`;
     prompt += `Respond with ONLY a JSON object with two fields:\n`;
     prompt += `- "suggested_categories": array of 5-7 category name strings\n`;
-    prompt += `- "assignments": array of {"tweet_id", "category", "confidence"}\n\n`;
-    prompt += `Example: {"suggested_categories":["Tech","Politics","Humor"],"assignments":[{"tweet_id":"abc123","category":"Tech","confidence":0.85}]}\n`;
+    prompt += `- "assignments": array of {"tweet_id", "categories", "confidence"}\n\n`;
+    prompt += `Example: {"suggested_categories":["Tech","Politics","Humor"],"assignments":[{"tweet_id":"abc123","categories":["Tech"],"confidence":0.85}]}\n`;
   }
 
   return prompt;

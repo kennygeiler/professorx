@@ -8,6 +8,7 @@ import { CategoryChips } from "@/components/search/category-chips";
 import { TimeSlider } from "@/components/search/time-slider";
 import { TweetCard } from "@/components/tweets/tweet-card";
 import { TweetSkeleton } from "@/components/tweets/tweet-skeleton";
+import { ColumnView } from "@/components/library/column-view";
 import type { TweetWithCategories } from "@/app/page";
 
 type TimeRange = "1d" | "3d" | "1w" | "2w" | "1m" | "2m" | "3m" | "6m" | "1y" | "all";
@@ -29,6 +30,7 @@ export function LibraryView({ initialTweets, initialCursor }: LibraryViewProps) 
   const [category, setCategory] = useState<string | null>(null);
   const [timeRange, setTimeRange] = useState<TimeRange>("all");
   const [mediaType, setMediaType] = useState<string | null>(null);
+  const [viewMode, setViewMode] = useState<"feed" | "columns">("feed");
   const [categories, setCategories] = useState<Category[]>([]);
 
   const [tweets, setTweets] = useState(initialTweets);
@@ -277,14 +279,31 @@ export function LibraryView({ initialTweets, initialCursor }: LibraryViewProps) 
   };
 
   return (
-    <div>
+    <div className={viewMode === "feed" ? "mx-auto max-w-2xl" : ""}>
       {/* Filter bar */}
-      <div className="sticky top-0 z-10 bg-zinc-950/95 pb-2 pt-1 sm:pb-4 sm:pt-2 backdrop-blur">
+      <div className={`sticky top-0 z-10 bg-zinc-950/95 pb-4 pt-1 sm:pb-6 sm:pt-2 backdrop-blur ${viewMode === "feed" ? "" : "mx-auto max-w-2xl"}`}>
         <div className="flex flex-col gap-2 sm:gap-3">
           <div className="flex items-center gap-2">
             <div className="flex-1">
               <SearchBar value={query} onChange={setQuery} />
             </div>
+            {/* View toggle — hidden on mobile */}
+            <button
+              onClick={() => setViewMode(viewMode === "feed" ? "columns" : "feed")}
+              className="hidden shrink-0 rounded-lg p-2 text-zinc-400 transition-colors hover:bg-zinc-800 hover:text-zinc-100 sm:block"
+              title={viewMode === "feed" ? "Column view" : "Feed view"}
+            >
+              {viewMode === "feed" ? (
+                <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M9 4h6M9 8h6M9 12h6M4 4v16M20 4v16" />
+                </svg>
+              ) : (
+                <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M4 6h16M4 12h16M4 18h16" />
+                </svg>
+              )}
+            </button>
+
             <button
               onClick={softRefresh}
               disabled={refreshing}
@@ -426,8 +445,10 @@ export function LibraryView({ initialTweets, initialCursor }: LibraryViewProps) 
         </div>
       </div>
 
-      {/* Tweet list */}
-      {filterLoading ? (
+      {/* Column view */}
+      {viewMode === "columns" ? (
+        <ColumnView categories={categories} onCategoryChanged={handleCategoryChanged} />
+      ) : filterLoading ? (
         <div className="flex flex-col gap-2 sm:gap-3">
           <TweetSkeleton />
           <TweetSkeleton />
