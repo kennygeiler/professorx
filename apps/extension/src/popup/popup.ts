@@ -72,21 +72,16 @@ document.getElementById("connect-btn")!.addEventListener("click", async () => {
   setStatus("Connected!");
 });
 
-// --- Sync — popup opens tab, injects scraper, polls chrome.storage for results ---
+// --- Sync — just opens the tab. Scraper handles everything from there. ---
 async function runSync(sources: Array<"like" | "bookmark">): Promise<void> {
-  disableButtons(true);
-  setProgress(5);
-
   const handle = await getTwitterHandle();
   if (!handle) {
     setStatus("Error: No Twitter handle. Disconnect and reconnect.", true);
-    disableButtons(false);
     return;
   }
 
-  const token = await getToken();
-  const backendUrl = await getBackendUrl();
-  let totalSent = 0;
+  // Clear previous state
+  await chrome.storage.local.remove("readxlater_scraper");
 
   for (const source of sources) {
     const url = source === "like"
@@ -95,114 +90,26 @@ async function runSync(sources: Array<"like" | "bookmark">): Promise<void> {
 
     setStatus(`Opening ${source === "like" ? "likes" : "bookmarks"}...`);
 
-    // Clear previous scraper state
-    await chrome.storage.local.remove("readxlater_scraper");
-
-    // Open tab
+    // Open tab — scraper auto-injects via content_scripts in manifest
+    // But we need to inject manually since it's not a content script
     const tab = await chrome.tabs.create({ url, active: true });
-    if (!tab.id) { setStatus("Failed to open tab", true); continue; }
 
-    // Wait for page to load
-    await new Promise<void>((resolve) => {
-      const listener = (tabId: number, info: chrome.tabs.TabChangeInfo) => {
+    if (tab.id) {
+      // Wait for load, then inject
+      chrome.tabs.onUpdated.addListener(function listener(tabId, info) {
         if (tabId === tab.id && info.status === "complete") {
           chrome.tabs.onUpdated.removeListener(listener);
-          resolve();
+          chrome.scripting.executeScript({
+            target: { tabId: tabId },
+            files: ["dist/scraper.js"],
+          }).catch(() => {});
         }
-      };
-      chrome.tabs.onUpdated.addListener(listener);
-    });
-
-    setStatus("Injecting scraper...");
-
-    // Inject scraper
-    try {
-      await chrome.scripting.executeScript({
-        target: { tabId: tab.id },
-        files: ["dist/scraper.js"],
       });
-    } catch (err) {
-      setStatus(`Failed to inject: ${err}`, true);
-      try { await chrome.tabs.remove(tab.id); } catch {}
-      continue;
     }
-
-    // Poll chrome.storage for scraper progress
-    let lastSentIndex = 0;
-    const done = await new Promise<boolean>((resolve) => {
-      const poll = setInterval(async () => {
-        const result = await chrome.storage.local.get("readxlater_scraper");
-        const state = result.readxlater_scraper;
-        if (!state) return;
-
-        setStatus(state.status || `Found ${state.count} tweets...`);
-        setProgress(Math.min(90, 5 + (state.count / 10)));
-
-        // Send new tweets to backend in batches of 50
-        const tweets = state.tweets || [];
-        while (lastSentIndex < tweets.length) {
-          const batch = tweets.slice(lastSentIndex, lastSentIndex + 50);
-          lastSentIndex += batch.length;
-          const sent = await sendBatch(batch, source, token!, backendUrl);
-          totalSent += sent;
-        }
-
-        if (state.done) {
-          clearInterval(poll);
-          resolve(true);
-        }
-      }, 1000);
-
-      // Safety timeout — 5 minutes
-      setTimeout(() => { clearInterval(poll); resolve(false); }, 5 * 60 * 1000);
-    });
-
-    // Close tab
-    try { await chrome.tabs.remove(tab.id); } catch {}
   }
 
-  setProgress(100);
-  setStatus(`Done! ${totalSent} tweets sent to backend.`);
-  disableButtons(false);
-
-  // Clean up
-  await chrome.storage.local.remove("readxlater_scraper");
-}
-
-async function sendBatch(
-  tweets: any[],
-  sourceType: string,
-  token: string,
-  backendUrl: string
-): Promise<number> {
-  const url = `${backendUrl}/api/tweets/ingest`;
-  const payload = {
-    tweets: tweets.map((t: any) => ({
-      twitter_tweet_id: t.twitter_tweet_id,
-      author_handle: t.author_handle || "unknown",
-      author_display_name: t.author_display_name || "Unknown",
-      author_avatar_url: t.author_avatar_url?.startsWith("http") ? t.author_avatar_url : null,
-      text_content: t.text_content || "",
-      media: (t.media || []).filter((m: any) => m.url?.startsWith("http")),
-      metrics: t.metrics || {},
-      tweet_type: t.tweet_type || "tweet",
-      source_type: sourceType,
-      tweet_created_at: t.tweet_created_at || null,
-    })),
-  };
-
-  try {
-    const res = await fetch(url, {
-      method: "POST",
-      headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
-      body: JSON.stringify(payload),
-    });
-    if (res.ok) {
-      const data = await res.json();
-      return data.total ?? data.inserted ?? 0;
-    }
-  } catch {}
-  return 0;
+  setStatus("Scraper running in the Twitter tab. Watch the overlay there.");
+  setProgress(50);
 }
 
 // Wire sync buttons
