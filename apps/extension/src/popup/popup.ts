@@ -2,7 +2,7 @@
  * Popup script — UI for the extension popup.
  */
 
-import { getToken, clearToken, setToken, setBackendUrl, getTwitterHandle, setTwitterHandle } from "../lib/auth";
+import { getToken, clearToken, setToken, getTwitterHandle, setTwitterHandle } from "../lib/auth";
 
 const notConnectedEl = document.getElementById("not-connected")!;
 const connectedEl = document.getElementById("connected")!;
@@ -38,11 +38,9 @@ function showNotConnected(): void {
 
 // Connect button
 document.getElementById("connect-btn")!.addEventListener("click", async () => {
-  const urlInput = document.getElementById("backend-url") as HTMLInputElement;
   const handleInput = document.getElementById("handle-input") as HTMLInputElement;
   const tokenInput = document.getElementById("token-input") as HTMLInputElement;
 
-  const url = urlInput.value.trim();
   const handle = handleInput.value.trim();
   const token = tokenInput.value.trim();
 
@@ -58,7 +56,6 @@ document.getElementById("connect-btn")!.addEventListener("click", async () => {
     return;
   }
 
-  if (url) await setBackendUrl(url);
   await setTwitterHandle(handle);
   await setToken(token);
   showConnected();
