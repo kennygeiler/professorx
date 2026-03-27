@@ -241,14 +241,15 @@ export async function categorizeTweets(
             });
 
           if (insertError) {
-            if (!insertError.message.includes('duplicate')) {
-              result.errors.push(
-                `Failed to assign tweet ${assignment.tweet_id}: ${insertError.message}`
-              );
-            }
+            result.errors.push(
+              `[DEBUG] Insert failed: ${insertError.message} (tweet: ${assignment.tweet_id.slice(0,8)}, cat: ${catName})`
+            );
             continue;
           }
           assigned = true;
+          if (result.categorized === 0) {
+            result.errors.push(`[DEBUG] First success: tweet ${assignment.tweet_id.slice(0,8)} → ${catName}`);
+          }
         }
 
         if (assigned) {
