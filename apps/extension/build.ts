@@ -31,6 +31,13 @@ async function build(): Promise<void> {
     format: "iife",
   });
 
+  // Inspector — IIFE (injected to validate selectors)
+  const inspectorBuild = esbuild.build({
+    ...commonOptions,
+    entryPoints: ["src/inspector.ts"],
+    format: "iife",
+  });
+
   // Popup script — IIFE
   const popupBuild = esbuild.build({
     ...commonOptions,
@@ -38,7 +45,7 @@ async function build(): Promise<void> {
     format: "iife",
   });
 
-  await Promise.all([backgroundBuild, scraperBuild, popupBuild]);
+  await Promise.all([backgroundBuild, scraperBuild, inspectorBuild, popupBuild]);
   console.log("Build complete!");
 }
 

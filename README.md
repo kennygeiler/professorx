@@ -120,6 +120,49 @@ the chrome extension is the entire data ingestion pipeline. no Twitter API invol
 
 **the tab must be in the foreground.** chrome throttles background tabs and Twitter won't render new tweet DOM elements in a hidden tab. you'll see the page scrolling. this is by design.
 
+## self-healing selectors
+
+Twitter changes their DOM periodically. class names shift, `data-testid` attributes get renamed, structure changes. when that happens, the scraper silently extracts 0 tweets. readXlater handles this automatically.
+
+### how it works
+
+all CSS selectors used by the scraper are stored in a config (not hardcoded). the extension has three layers of protection:
+
+**1. selector config** (`apps/extension/src/selectors.ts`)
+
+every selector the scraper uses is defined in a config object stored in `chrome.storage`. the scraper reads from this config at runtime. you can update selectors without rebuilding the extension.
+
+```
+tweetArticle: article[data-testid="tweet"], article[role="article"]
+tweetText:    div[data-testid="tweetText"]
+avatar:       img[src*="profile_images"]
+statusLink:   a[href*="/status/"]
+...
+```
+
+**2. inspector** (`apps/extension/src/inspector.ts`)
+
+click "Check Selectors" in the popup. the extension opens a Twitter tab, injects the inspector script, and tests every selector against the live DOM. results show green (found elements) or red (broken) per selector.
+
+run this:
+- before your first sync (validates selectors work)
+- whenever a sync returns 0 tweets
+- after Twitter pushes a major UI update
+
+**3. AI auto-heal** (`/api/selectors/heal`)
+
+when the inspector finds broken selectors, the extension:
+
+1. captures a DOM snapshot of the first tweet article element (raw HTML)
+2. sends the broken selectors + DOM snapshot to the backend `/api/selectors/heal` endpoint
+3. GPT-4o-mini analyzes the DOM structure and generates updated CSS selectors
+4. extension saves the fixed selectors to `chrome.storage`
+5. next sync uses the healed selectors automatically
+
+the daily health check alarm runs this flow once per day in the background. if Twitter changes something overnight, your selectors auto-repair before your next sync.
+
+**manual heal:** if auto-heal fails, update the selectors in `apps/extension/src/selectors.ts` and rebuild. the default selectors there serve as the baseline.
+
 ## the web app
 
 ### search
@@ -281,6 +324,7 @@ redistribute the `apps/extension` folder. users load it as an unpacked extension
 | `/api/corrections` | POST | session | reclassify + AI learning |
 | `/api/settings` | GET/PATCH | session | user preferences |
 | `/api/auth/extension-token` | GET | session | generate 30-day JWT |
+| `/api/selectors/heal` | POST | none | AI-powered CSS selector repair |
 
 ## database
 
@@ -299,17 +343,12 @@ run migrations in `supabase/migrations/` in order (001 through 005).
 
 PRs welcome. the main areas that need work:
 
-- **extension resilience** -- Twitter changes their DOM periodically. selectors need updating when that happens
 - **better media extraction** -- video URLs from the DOM are often poster images, not playable URLs
 - **incremental sync** -- only fetch tweets newer than the last sync instead of scrolling through everything
 - **browser support** -- firefox extension port
+- **selector coverage** -- more fallback selectors for edge cases in Twitter's DOM
+- **auto-heal improvements** -- the AI heal endpoint could validate its own output by re-running the inspector
 
 ## license
 
 MIT
-
-## author
-
-Kenny Geiler -- [outsidekenny.com](https://outsidekenny.com)
-
-built entirely by telling AI what to do. the chopped cheese and ginger shot guy from New York.

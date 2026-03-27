@@ -141,6 +141,26 @@ document.getElementById("test-btn")!.addEventListener("click", () => {
   });
 });
 
+// Check selectors
+document.getElementById("check-selectors-btn")!.addEventListener("click", () => {
+  const resultsEl = document.getElementById("selector-results")!;
+  resultsEl.textContent = "Checking selectors (opening Twitter tab)...";
+  chrome.runtime.sendMessage({ type: "RUN_INSPECTION" }, (response) => {
+    if (chrome.runtime.lastError || !response?.results) {
+      resultsEl.textContent = "Inspection failed — are you logged into Twitter?";
+      return;
+    }
+    const lines: string[] = [];
+    for (const [name, result] of Object.entries(response.results) as [string, { found: number }][]) {
+      const icon = result.found > 0 ? "OK" : "BROKEN";
+      lines.push(`${icon} ${name}: ${result.found}`);
+    }
+    resultsEl.innerHTML = lines.map((l) =>
+      l.startsWith("OK") ? `<div style="color:#22c55e">${l}</div>` : `<div style="color:#ef4444">${l}</div>`
+    ).join("");
+  });
+});
+
 // Disconnect
 document.getElementById("disconnect-btn")!.addEventListener("click", async () => {
   await clearToken();
