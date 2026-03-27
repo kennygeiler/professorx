@@ -18,10 +18,11 @@ export function buildCategorizationPrompt(
 
   // --- System instructions ---
   if (hasCategories) {
-    prompt += `You are a tweet categorization assistant. Assign each tweet to 1 or 2 categories from the user's list. Use 2 categories only when a tweet clearly spans two topics. Most tweets should get 1 category.\n\n`;
-    prompt += `## Categories\n`;
+    prompt += `You are a tweet categorization assistant. Assign each tweet to 1 or 2 categories. Use existing categories when they fit. If a tweet does not fit ANY existing category, create a new descriptive category name.\n\n`;
+    prompt += `IMPORTANT: Every tweet MUST get at least 1 category. Never return an empty categories array.\n\n`;
+    prompt += `## Existing Categories\n`;
     prompt += categories.map((c) => `- ${c}`).join('\n');
-    prompt += '\n\n';
+    prompt += '\n\nYou may use these or create new ones as needed.\n\n';
   } else {
     prompt += `You are a tweet categorization assistant. The user has no categories yet. Analyze the tweets below and:\n`;
     prompt += `1. Suggest 5-7 initial categories that best group these tweets.\n`;
@@ -66,9 +67,10 @@ export function buildCategorizationPrompt(
     prompt += `## Response Format\n`;
     prompt += `Respond with ONLY a JSON array. Each element must have:\n`;
     prompt += `- "tweet_id": the tweet ID from the brackets above\n`;
-    prompt += `- "categories": array of 1-2 category names from the list above (exact match)\n`;
+    prompt += `- "categories": array of 1-2 category names. Use existing ones or create new descriptive names.\n`;
     prompt += `- "confidence": a number from 0.0 to 1.0\n\n`;
-    prompt += `Example: [{"tweet_id":"abc123","categories":["Tech"],"confidence":0.92},{"tweet_id":"def456","categories":["Tech","Finance"],"confidence":0.85}]\n`;
+    prompt += `EVERY tweet must have at least 1 category. Never leave categories empty.\n\n`;
+    prompt += `Example: [{"tweet_id":"abc123","categories":["Tech"],"confidence":0.92},{"tweet_id":"def456","categories":["Film"],"confidence":0.85}]\n`;
   } else {
     prompt += `## Response Format\n`;
     prompt += `Respond with ONLY a JSON object with two fields:\n`;

@@ -73,16 +73,18 @@ export async function categorizeTweets(
     if (candidateError) {
       tweetsError = candidateError;
     } else if (candidateTweets && candidateTweets.length > 0) {
-      // Check which of these candidates already have categories
-      const candidateIds = candidateTweets.map((t) => t.id);
-      const { data: existingCats } = await supabase
-        .from('tweet_categories')
-        .select('tweet_id')
-        .in('tweet_id', candidateIds);
-
-      const categorizedSet = new Set(
-        (existingCats ?? []).map((tc) => tc.tweet_id)
-      );
+      // Check which candidates already have categories (chunked to avoid URL limits)
+      const categorizedSet = new Set<string>();
+      for (let i = 0; i < candidateTweets.length; i += 100) {
+        const chunk = candidateTweets.slice(i, i + 100).map((t) => t.id);
+        const { data: existingCats } = await supabase
+          .from('tweet_categories')
+          .select('tweet_id')
+          .in('tweet_id', chunk);
+        for (const tc of existingCats ?? []) {
+          categorizedSet.add(tc.tweet_id);
+        }
+      }
 
       tweets = candidateTweets
         .filter((t) => !categorizedSet.has(t.id))
@@ -165,14 +167,38 @@ export async function categorizeTweets(
       }
 
 
+      // Strip markdown fences if AI wraps response in ```json...```
+      let jsonStr = raw;
+      if (jsonStr.startsWith("```")) {
+        jsonStr = jsonStr.replace(/^```(?:json)?\n?/, "").replace(/\n?```$/, "");
+      }
+
+      let parsed: unknown;
+      try {
+        parsed = JSON.parse(jsonStr);
+      } catch (parseErr) {
+        result.errors.push(`JSON parse failed: ${String(parseErr).slice(0, 100)}`);
+        continue;
+      }
+
       let assignments: AiAssignment[];
 
       if (hasCategories) {
         // Parse as direct assignment array
-        assignments = JSON.parse(raw) as AiAssignment[];
+        if (!Array.isArray(parsed)) {
+          // Sometimes AI wraps in an object like { assignments: [...] }
+          const obj = parsed as Record<string, unknown>;
+          assignments = (obj.assignments ?? obj.results ?? []) as AiAssignment[];
+          if (!Array.isArray(assignments)) {
+            result.errors.push(`Unexpected response format`);
+            continue;
+          }
+        } else {
+          assignments = parsed as AiAssignment[];
+        }
       } else {
         // Parse as suggestion response with new categories
-        const suggestion = JSON.parse(raw) as AiSuggestionResponse;
+        const suggestion = parsed as AiSuggestionResponse;
 
         // Create the suggested categories
         for (const catName of suggestion.suggested_categories) {
@@ -207,12 +233,26 @@ export async function categorizeTweets(
 
       // Insert tweet_categories records (supports 1-2 categories per tweet)
       for (const assignment of assignments) {
-        // Support both new multi-category and legacy single-category format
-        const catNames = assignment.categories?.length
-          ? assignment.categories.slice(0, 2)
-          : assignment.category
-            ? [assignment.category]
-            : [];
+        // Normalize categories — handle all formats the AI might return:
+        // "categories": ["Tech"]          → array (expected)
+        // "categories": "Tech"            → string (AI sometimes does this)
+        // "category": "Tech"              → legacy single field
+        // "categories": ["Tech", "AI"]    → multi-category
+        let catNames: string[] = [];
+        const rawCats = (assignment as any).categories;
+        const rawCat = (assignment as any).category;
+
+        if (Array.isArray(rawCats)) {
+          catNames = rawCats.slice(0, 2);
+        } else if (typeof rawCats === "string" && rawCats) {
+          catNames = [rawCats];
+        } else if (typeof rawCat === "string" && rawCat) {
+          catNames = [rawCat];
+        }
+
+        if (catNames.length === 0) {
+          continue; // AI returned no categories — skip silently
+        }
 
 
         let assigned = false;
@@ -254,7 +294,7 @@ export async function categorizeTweets(
 
           if (insertError) {
             if (!insertError.message.includes('duplicate')) {
-              result.errors.push(`Failed to assign tweet: ${insertError.message}`);
+              result.errors.push(`Insert failed: ${insertError.message.slice(0,100)}`);
             }
             continue;
           }
