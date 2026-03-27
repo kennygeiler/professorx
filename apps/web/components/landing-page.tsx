@@ -20,7 +20,7 @@ export function LandingPage() {
 
         <div className="mt-8 flex flex-col items-center gap-3 sm:flex-row sm:justify-center">
           <a
-            href="https://github.com/kennygeiler/professorx"
+            href="https://github.com/kennygeiler/readxlater"
             target="_blank"
             rel="noopener noreferrer"
             className="inline-flex items-center gap-2.5 rounded-xl bg-[#1d9bf0] px-6 py-3.5 text-sm font-semibold text-white transition-colors hover:bg-[#1a8cd8]"
@@ -31,7 +31,7 @@ export function LandingPage() {
             Clone on GitHub
           </a>
           <a
-            href="https://github.com/kennygeiler/professorx#quick-start"
+            href="https://github.com/kennygeiler/readxlater#quick-start"
             target="_blank"
             rel="noopener noreferrer"
             className="inline-flex items-center gap-2 rounded-xl bg-zinc-800 px-6 py-3.5 text-sm font-semibold text-zinc-300 transition-colors hover:bg-zinc-700"
