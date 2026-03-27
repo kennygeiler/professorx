@@ -125,6 +125,22 @@ setupSyncButton("sync-both-btn", ["like", "bookmark"]);
 setupSyncButton("sync-likes-btn", ["like"]);
 setupSyncButton("sync-bookmarks-btn", ["bookmark"]);
 
+// Test connection
+document.getElementById("test-btn")!.addEventListener("click", () => {
+  statusEl.textContent = "Testing...";
+  chrome.runtime.sendMessage({ type: "TEST_INGEST" }, (response) => {
+    if (chrome.runtime.lastError) {
+      statusEl.textContent = `Error: ${chrome.runtime.lastError.message}`;
+      return;
+    }
+    if (response?.error) {
+      statusEl.textContent = `Failed: ${response.error}`;
+    } else {
+      statusEl.textContent = `Backend: ${response?.status} — ${response?.body?.slice(0, 100)}`;
+    }
+  });
+});
+
 // Disconnect
 document.getElementById("disconnect-btn")!.addEventListener("click", async () => {
   await clearToken();

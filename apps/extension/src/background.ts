@@ -141,6 +141,27 @@ chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
     return true;
   }
 
+  if (message.type === "TEST_INGEST") {
+    (async () => {
+      const { getToken, getBackendUrl } = await import("./lib/auth");
+      const token = await getToken();
+      const backendUrl = await getBackendUrl();
+      const url = `${backendUrl}/api/tweets/ingest`;
+      try {
+        const res = await fetch(url, {
+          method: "POST",
+          headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+          body: JSON.stringify({ tweets: [{ twitter_tweet_id: "test123", author_handle: "test", author_display_name: "Test", text_content: "Test tweet", source_type: "like" }] }),
+        });
+        const body = await res.text();
+        sendResponse({ status: res.status, body });
+      } catch (err) {
+        sendResponse({ error: String(err) });
+      }
+    })();
+    return true;
+  }
+
   return true;
 });
 
