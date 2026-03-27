@@ -1,5 +1,5 @@
 /**
- * Popup script — UI for the extension popup.
+ * Popup script — always shows live sync status.
  */
 
 import { getToken, clearToken, setToken, getTwitterHandle, setTwitterHandle } from "../lib/auth";
@@ -21,6 +21,8 @@ async function init(): Promise<void> {
       const label = document.getElementById("connected-label");
       if (label) label.textContent = `Connected as @${handle}`;
     }
+    // Always start polling — picks up active syncs
+    startPolling();
   } else {
     showNotConnected();
   }
@@ -34,6 +36,47 @@ function showConnected(): void {
 function showNotConnected(): void {
   notConnectedEl.style.display = "block";
   connectedEl.style.display = "none";
+}
+
+function startPolling(): void {
+  if (pollInterval) return;
+  updateStatus(); // Immediate first check
+  pollInterval = setInterval(updateStatus, 1000);
+}
+
+function updateStatus(): void {
+  chrome.runtime.sendMessage({ type: "GET_STATUS" }, (response) => {
+    if (chrome.runtime.lastError || !response) return;
+
+    const buttons = document.querySelectorAll(".btn") as NodeListOf<HTMLButtonElement>;
+
+    if (response.active) {
+      // Sync in progress
+      progressBar.classList.add("active");
+      const pct = Math.min(95, Math.max(5, (response.scraped / 10) * 1));
+      progressFill.style.width = `${pct}%`;
+      statusEl.textContent = response.status || `Scraping... ${response.scraped} tweets found`;
+      buttons.forEach((b) => (b.disabled = true));
+    } else if (response.scraped > 0 || response.synced > 0) {
+      // Sync finished
+      progressBar.classList.add("active");
+      progressFill.style.width = "100%";
+
+      const parts = [];
+      if (response.scraped > 0) parts.push(`${response.scraped} scraped`);
+      if (response.synced > 0) parts.push(`${response.synced} sent to backend`);
+      if (response.errors > 0) parts.push(`${response.errors} errors`);
+      if (response.pending > 0) parts.push(`${response.pending} pending`);
+
+      statusEl.textContent = response.status || parts.join(", ");
+      buttons.forEach((b) => (b.disabled = false));
+    } else {
+      // Idle
+      progressBar.classList.remove("active");
+      statusEl.textContent = response.status || "Ready to sync";
+      buttons.forEach((b) => (b.disabled = false));
+    }
+  });
 }
 
 // Connect button
@@ -63,12 +106,18 @@ document.getElementById("connect-btn")!.addEventListener("click", async () => {
   const label = document.getElementById("connected-label");
   if (label) label.textContent = `Connected as @${handle.replace(/^@/, "")}`;
   statusEl.textContent = "Connected!";
+  startPolling();
 });
 
 // Sync buttons
 function setupSyncButton(id: string, sources: Array<"like" | "bookmark">): void {
   document.getElementById(id)!.addEventListener("click", () => {
-    startSync(sources);
+    chrome.runtime.sendMessage({ type: "START_SYNC", sources });
+    statusEl.textContent = "Starting sync...";
+    progressBar.classList.add("active");
+    progressFill.style.width = "5%";
+    const buttons = document.querySelectorAll(".btn") as NodeListOf<HTMLButtonElement>;
+    buttons.forEach((b) => (b.disabled = true));
   });
 }
 
@@ -76,51 +125,16 @@ setupSyncButton("sync-both-btn", ["like", "bookmark"]);
 setupSyncButton("sync-likes-btn", ["like"]);
 setupSyncButton("sync-bookmarks-btn", ["bookmark"]);
 
-async function startSync(sources: Array<"like" | "bookmark">): Promise<void> {
-  // Disable all sync buttons
-  const buttons = document.querySelectorAll(".btn") as NodeListOf<HTMLButtonElement>;
-  buttons.forEach((b) => (b.disabled = true));
-
-  progressBar.classList.add("active");
-  progressFill.style.width = "5%";
-  statusEl.textContent = "Starting sync...";
-  statusEl.className = "status";
-
-  chrome.runtime.sendMessage({ type: "START_SYNC", sources });
-
-  // Poll for status
-  if (pollInterval) clearInterval(pollInterval);
-  pollInterval = setInterval(async () => {
-    chrome.runtime.sendMessage({ type: "GET_STATUS" }, (response) => {
-      if (!response) return;
-
-      statusEl.textContent = response.status || `${response.scraped} tweets found`;
-
-      // Estimate progress (assume max ~2000 tweets)
-      const pct = Math.min(95, (response.scraped / 20) * 1);
-      progressFill.style.width = `${Math.max(pct, 5)}%`;
-
-      if (!response.active && response.scraped > 0) {
-        // Sync complete
-        progressFill.style.width = "100%";
-        statusEl.textContent = `Done! ${response.scraped} tweets synced (${response.synced} sent to backend)`;
-
-        buttons.forEach((b) => (b.disabled = false));
-        if (pollInterval) {
-          clearInterval(pollInterval);
-          pollInterval = null;
-        }
-      }
-    });
-  }, 1000);
-}
-
 // Disconnect
 document.getElementById("disconnect-btn")!.addEventListener("click", async () => {
   await clearToken();
   showNotConnected();
   statusEl.textContent = "";
   progressBar.classList.remove("active");
+  if (pollInterval) {
+    clearInterval(pollInterval);
+    pollInterval = null;
+  }
 });
 
 init();
