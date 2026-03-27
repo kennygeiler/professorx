@@ -45,9 +45,8 @@ function startPolling(): void {
 }
 
 function updateStatus(): void {
-  // Ping first to wake worker, then get status
-  chrome.runtime.sendMessage({ type: "PING" }, () => {
-    chrome.runtime.lastError; // clear
+  try { chrome.runtime.connect({ name: "poll" }).disconnect(); } catch {}
+  setTimeout(() => {
     chrome.runtime.sendMessage({ type: "GET_STATUS" }, (response) => {
       if (chrome.runtime.lastError || !response) return;
 
@@ -80,7 +79,7 @@ function updateStatus(): void {
       buttons.forEach((b) => (b.disabled = false));
     }
     });
-  });
+  }, 200);
 }
 
 // Connect button
@@ -116,17 +115,24 @@ document.getElementById("connect-btn")!.addEventListener("click", async () => {
   startPolling();
 });
 
-// Wake the service worker by sending a ping, then send the real message
+// Send message to background — uses port to wake the service worker
 async function sendToBackground(msg: Record<string, unknown>): Promise<unknown> {
   return new Promise((resolve) => {
-    // First ping wakes the worker, second message is the real one
-    chrome.runtime.sendMessage({ type: "PING" }, () => {
-      chrome.runtime.lastError; // clear any error
+    const timeout = setTimeout(() => resolve(null), 5000);
+    try {
+      // chrome.runtime.connect() wakes the service worker in Manifest V3
+      const port = chrome.runtime.connect({ name: "popup" });
+      port.disconnect();
+    } catch {}
+
+    // Small delay to let the worker start, then send the message
+    setTimeout(() => {
       chrome.runtime.sendMessage(msg, (response) => {
-        chrome.runtime.lastError; // clear any error
+        clearTimeout(timeout);
+        chrome.runtime.lastError; // clear
         resolve(response);
       });
-    });
+    }, 300);
   });
 }
 
