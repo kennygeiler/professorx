@@ -54,7 +54,11 @@ this means you're reading the same DOM you see when you manually scroll Twitter.
 
 ## quick start
 
-### 5 minutes: get the web app running
+### 1 minute: AI-assisted setup (recommended)
+
+if you're using Claude Code, Cursor, Windsurf, or any AI coding assistant, copy the prompt from [`SETUP_PROMPT.md`](SETUP_PROMPT.md) and paste it in. the AI will walk you through every step — creating accounts, running migrations, filling env vars, building the extension.
+
+### 5 minutes: manual setup
 
 ```bash
 git clone https://github.com/YOUR_USERNAME/readxlater.git
