@@ -161,6 +161,9 @@ export async function categorizeTweets(
         continue;
       }
 
+      // Log raw AI response for debugging
+      result.errors.push(`[DEBUG] AI raw (first 200): ${raw.slice(0, 200)}`);
+
       let assignments: AiAssignment[];
 
       if (hasCategories) {
@@ -209,6 +212,10 @@ export async function categorizeTweets(
           : assignment.category
             ? [assignment.category]
             : [];
+
+        if (result.categorized === 0 && catNames.length === 0) {
+          result.errors.push(`[DEBUG] Empty catNames. Raw assignment: ${JSON.stringify(assignment).slice(0, 200)}`);
+        }
 
         let assigned = false;
         for (const catName of catNames) {
