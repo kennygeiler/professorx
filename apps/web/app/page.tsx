@@ -2,6 +2,7 @@ export const dynamic = "force-dynamic";
 
 import { createAdminClient } from "@/lib/supabase/admin";
 import { getLocalUserId } from "@/lib/auth/local-user";
+import { LandingPage } from "@/components/landing-page";
 import { EmptyState } from "@/components/tweets/empty-state";
 import { LibraryView } from "@/components/library/library-view";
 import { Header } from "@/components/layout/header";
@@ -70,6 +71,11 @@ async function getInitialTweets(
 }
 
 export default async function LibraryPage() {
+  // Demo mode — show landing page instead of app
+  if (process.env.DEMO_MODE === "true") {
+    return <LandingPage />;
+  }
+
   const userId = await getLocalUserId();
   const { tweets, nextCursor } = await getInitialTweets(userId);
 
