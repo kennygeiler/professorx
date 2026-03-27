@@ -174,33 +174,56 @@ the daily health check alarm runs this flow once per day in the background. if T
 
 ## the web app
 
-<!-- add screenshot: assets/screenshots/library.png -->
+![library view](assets/screenshots/library.png)
+*the main library — 1,030 tweets organized into 25 auto-generated categories with colored chips, search, filters, and time slider.*
 
 ### search
 
-- full-text search via PostgreSQL `tsvector` (triggers at 3 characters, 200ms debounce)
-- `@username` queries bypass FTS and use `ilike` on author fields
-- AI-powered semantic search: "tweets about investing advice" works. sends batches to GPT-4o-mini for relevance matching
+two search modes:
+
+**full-text search** — PostgreSQL `tsvector` across tweet text + author names. triggers at 3 characters with 200ms debounce. `@username` queries use `ilike` for exact author matching.
+
+**AI semantic search** — type a natural language query like "find tweets that are sexy" or "movie files" and click "Search with AI." GPT-4o-mini reads your tweets in batches of 50 and returns the ones that semantically match your intent, even if the exact words aren't there.
+
+![ai search](assets/screenshots/ai-search.png)
+*AI semantic search in progress — searching "movie files" across 1,030 tweets.*
+
+![ai search results](assets/screenshots/ai-search-results.png)
+*AI search results for "find tweets that are sexy" — finds tweets by meaning, not just keywords.*
 
 ### filters
 
 - **source**: all / likes / bookmarks
 - **media type**: photos / videos / quotes / uncategorized
 - **category**: colored chips that wrap to multiple lines
-- **time**: fibonacci slider (All, 1d, 3d, 1w, 2w, 1m, 2m, 3m, 6m, 1y) shows tweets from that point in time and older
+- **time**: fibonacci slider (All → 1d → 3d → 1w → 2w → 1m → 2m → 3m → 6m → 1y)
 - collapsible filter section to save screen space
 
-<!-- add screenshot: assets/screenshots/search-filters.png -->
+### the AI categorization engine
 
-### categorization
+this is the core of readXlater. here's exactly how it works:
 
-- GPT-4o-mini assigns 1-2 categories per tweet
-- auto-creates new categories as it discovers new topics
-- categories get colors from an 18-color palette
-- AI learns from reclassifications: when you move a tweet, it asks "why?" and stores the correction
-- per-user AI memory (corrections + category rules) stored in JSONB
+![categorization engine](assets/screenshots/categorization.png)
+*Round 1: Created "Investigative Journalism" — 49 tweets categorized, 659 remaining. the AI creates new categories on the fly.*
 
-<!-- add screenshot: assets/screenshots/categories.png -->
+**how categorization works:**
+
+1. **fetch uncategorized tweets** — pulls 50 uncategorized tweets from the database per round (chunked queries to avoid URL limits)
+2. **build the prompt** — includes existing category names, recent user corrections, and category rules. tells the AI: "assign 1-2 categories. use existing ones or create new descriptive names. every tweet must get at least 1 category."
+3. **send to GPT-4o-mini** — processes in batches of 10 tweets per API call (5 calls per round). temperature 0.3 for consistency.
+4. **parse and insert** — handles every response format the AI might return (array, string, wrapped object, markdown fences). auto-creates new categories with colors from an 18-color palette.
+5. **loop until done** — client-side loop runs up to 50 rounds (~2,500 tweets max per click). shows live progress: round number, count, remaining.
+
+**how the AI learns from you:**
+
+when you tap a category badge on a tweet and reclassify it, the system:
+
+1. **asks "why?"** — optional explanation prompt (skip or skip-always available)
+2. **stores the correction** — original category, new category, tweet text, your reason. saved in per-user AI memory (JSONB in the users table). max 200 corrections, oldest evicted.
+3. **extracts a rule** — if you provide a reason like "this is about investing, not general finance," it becomes a permanent rule: `"This is about investing, not general finance — should go to 'Investing', not 'Finance'."`
+4. **feeds back into prompts** — next time the AI categorizes, it reads the last 10 corrections and all rules as few-shot examples. the prompt literally includes your past corrections so the AI doesn't repeat the same mistake.
+
+the result: the more you use it, the better it gets. correction on day 1 prevents the same error on day 30. the system compounds.
 
 ### tweet cards
 
@@ -208,7 +231,7 @@ the daily health check alarm runs this flow once per day in the background. if T
 - Twitter blue left border accent
 - quote tweet embeds (nested card)
 - link preview chips for URLs
-- video playback with controls, GIF autoplay
+- video/GIF thumbnails with play button (links to original tweet for playback)
 - bookmark indicator for saved tweets
 - reply context label
 - category badges (tap to reclassify)
