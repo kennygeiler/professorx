@@ -145,13 +145,18 @@ async function autoScroll(): Promise<void> {
 
   // Send status to background
   const sendStatus = (msg: string) => {
-    chrome.runtime.sendMessage({ type: "SCRAPE_STATUS", message: msg, count: totalScraped });
+    console.log(`[Scraper] ${msg}`);
+    try {
+      chrome.runtime.sendMessage({ type: "SCRAPE_STATUS", message: msg, count: totalScraped });
+    } catch (e) {
+      console.warn("[Scraper] Failed to send status:", e);
+    }
   };
 
   sendStatus("Starting scroll...");
 
   // Wait for initial tweets to load
-  await new Promise((r) => setTimeout(r, 2000));
+  await new Promise((r) => setTimeout(r, 3000));
 
   while (noNewTweetsCount < maxNoNew) {
     const beforeCount = seenIds.size;
@@ -160,10 +165,15 @@ async function autoScroll(): Promise<void> {
     const newTweets = extractAllTweets();
     if (newTweets.length > 0) {
       totalScraped += newTweets.length;
-      chrome.runtime.sendMessage({
-        type: "TWEETS_SCRAPED",
-        tweets: newTweets,
-      });
+      console.log(`[Scraper] Extracted ${newTweets.length} new tweets (total: ${totalScraped})`);
+      try {
+        chrome.runtime.sendMessage({
+          type: "TWEETS_SCRAPED",
+          tweets: newTweets,
+        });
+      } catch (e) {
+        console.warn("[Scraper] Failed to send tweets:", e);
+      }
       sendStatus(`Found ${totalScraped} tweets...`);
     }
 
