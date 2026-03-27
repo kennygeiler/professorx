@@ -8,7 +8,7 @@ const STORAGE_KEYS = {
   BACKEND_URL: 'professorx_backend_url',
 } as const;
 
-const DEFAULT_BACKEND_URL = 'http://localhost:3000';
+const DEFAULT_BACKEND_URL = 'https://likesscrapper.vercel.app';
 
 /**
  * Get the stored auth token.

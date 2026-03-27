@@ -2,15 +2,119 @@
 <html>
   <head>
     <meta charset="utf-8" />
-    <link rel="stylesheet" href="popup.css" />
+    <style>
+      * { margin: 0; padding: 0; box-sizing: border-box; }
+      body {
+        width: 320px;
+        font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+        background: #09090b;
+        color: #e4e4e7;
+        padding: 16px;
+      }
+      h1 {
+        font-size: 14px;
+        font-weight: 700;
+        margin-bottom: 12px;
+        color: #fafafa;
+      }
+      .section {
+        margin-bottom: 12px;
+      }
+      .btn {
+        width: 100%;
+        padding: 10px;
+        border: none;
+        border-radius: 8px;
+        font-size: 13px;
+        font-weight: 600;
+        cursor: pointer;
+        margin-bottom: 6px;
+        transition: opacity 0.2s;
+      }
+      .btn:disabled { opacity: 0.4; cursor: not-allowed; }
+      .btn-primary {
+        background: #1d9bf0;
+        color: white;
+      }
+      .btn-primary:hover:not(:disabled) { background: #1a8cd8; }
+      .btn-secondary {
+        background: #27272a;
+        color: #a1a1aa;
+      }
+      .btn-secondary:hover:not(:disabled) { background: #3f3f46; color: #e4e4e7; }
+      .status {
+        font-size: 11px;
+        color: #1d9bf0;
+        padding: 8px 0;
+        min-height: 28px;
+      }
+      .status.error { color: #ef4444; }
+      .progress-bar {
+        height: 3px;
+        background: #27272a;
+        border-radius: 99px;
+        overflow: hidden;
+        margin-bottom: 8px;
+        display: none;
+      }
+      .progress-bar.active { display: block; }
+      .progress-fill {
+        height: 100%;
+        background: #1d9bf0;
+        border-radius: 99px;
+        width: 0%;
+        transition: width 0.3s;
+      }
+      input[type="text"] {
+        width: 100%;
+        padding: 8px 10px;
+        border: 1px solid #3f3f46;
+        border-radius: 6px;
+        background: #18181b;
+        color: #e4e4e7;
+        font-size: 12px;
+        outline: none;
+        margin-bottom: 6px;
+      }
+      input:focus { border-color: #1d9bf0; }
+      label { font-size: 11px; color: #71717a; display: block; margin-bottom: 4px; }
+      .connected { color: #22c55e; font-size: 11px; margin-bottom: 8px; }
+      .disconnect { color: #71717a; font-size: 11px; cursor: pointer; text-decoration: underline; }
+      .disconnect:hover { color: #ef4444; }
+      .divider { border-top: 1px solid #27272a; margin: 12px 0; }
+    </style>
   </head>
   <body>
-    <div id="app">
-      <h1>ProfessorX</h1>
-      <div id="status"></div>
-      <div id="stats"></div>
-      <div id="auth-section"></div>
+    <h1>ItoldYou</h1>
+
+    <div id="not-connected">
+      <div class="section">
+        <label>Backend URL</label>
+        <input type="text" id="backend-url" placeholder="https://likesscrapper.vercel.app" />
+      </div>
+      <div class="section">
+        <label>Auth Token (from web app settings)</label>
+        <input type="text" id="token-input" placeholder="Paste your token here" />
+      </div>
+      <button class="btn btn-primary" id="connect-btn">Connect</button>
     </div>
+
+    <div id="connected" style="display:none">
+      <p class="connected">Connected</p>
+
+      <div class="progress-bar" id="progress-bar">
+        <div class="progress-fill" id="progress-fill"></div>
+      </div>
+      <div class="status" id="status"></div>
+
+      <button class="btn btn-primary" id="sync-both-btn">Sync Likes & Bookmarks</button>
+      <button class="btn btn-secondary" id="sync-likes-btn">Sync Likes Only</button>
+      <button class="btn btn-secondary" id="sync-bookmarks-btn">Sync Bookmarks Only</button>
+
+      <div class="divider"></div>
+      <span class="disconnect" id="disconnect-btn">Disconnect</span>
+    </div>
+
     <script src="../../dist/popup.js"></script>
   </body>
 </html>

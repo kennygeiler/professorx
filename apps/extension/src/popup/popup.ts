@@ -1,135 +1,114 @@
 /**
- * Popup script -- UI for the ProfessorX extension popup.
+ * Popup script — UI for the extension popup.
  */
 
-import { getToken, clearToken, setToken, getBackendUrl } from '../lib/auth';
+import { getToken, clearToken, setToken, setBackendUrl } from "../lib/auth";
 
-interface SyncStatus {
-  pending: number;
-  synced: number;
-  errors: number;
-  lastSync: number | null;
-}
+const notConnectedEl = document.getElementById("not-connected")!;
+const connectedEl = document.getElementById("connected")!;
+const statusEl = document.getElementById("status")!;
+const progressBar = document.getElementById("progress-bar")!;
+const progressFill = document.getElementById("progress-fill")!;
 
-const statusEl = document.getElementById('status')!;
-const statsEl = document.getElementById('stats')!;
-const authSectionEl = document.getElementById('auth-section')!;
+let pollInterval: ReturnType<typeof setInterval> | null = null;
 
 async function init(): Promise<void> {
   const token = await getToken();
-
   if (token) {
-    renderConnected();
-    await refreshStatus();
+    showConnected();
   } else {
-    renderDisconnected();
+    showNotConnected();
   }
-
-  // Check for token in URL hash (from extension-token redirect)
-  checkForTokenInUrl();
 }
 
-function renderConnected(): void {
-  authSectionEl.innerHTML = `
-    <div class="auth-status connected">
-      <span class="dot green"></span> Connected
-    </div>
-    <button id="disconnect-btn" class="btn btn-secondary">Disconnect</button>
-  `;
+function showConnected(): void {
+  notConnectedEl.style.display = "none";
+  connectedEl.style.display = "block";
+}
 
-  document.getElementById('disconnect-btn')?.addEventListener('click', async () => {
-    await clearToken();
-    renderDisconnected();
-    statusEl.textContent = '';
-    statsEl.textContent = '';
+function showNotConnected(): void {
+  notConnectedEl.style.display = "block";
+  connectedEl.style.display = "none";
+}
+
+// Connect button
+document.getElementById("connect-btn")!.addEventListener("click", async () => {
+  const urlInput = document.getElementById("backend-url") as HTMLInputElement;
+  const tokenInput = document.getElementById("token-input") as HTMLInputElement;
+
+  const url = urlInput.value.trim();
+  const token = tokenInput.value.trim();
+
+  if (!token) {
+    statusEl.textContent = "Please enter a token";
+    statusEl.className = "status error";
+    return;
+  }
+
+  if (url) {
+    await setBackendUrl(url);
+  }
+  await setToken(token);
+  showConnected();
+  statusEl.textContent = "Connected!";
+});
+
+// Sync buttons
+function setupSyncButton(id: string, sources: Array<"like" | "bookmark">): void {
+  document.getElementById(id)!.addEventListener("click", () => {
+    startSync(sources);
   });
 }
 
-async function renderDisconnected(): Promise<void> {
-  const backendUrl = await getBackendUrl();
+setupSyncButton("sync-both-btn", ["like", "bookmark"]);
+setupSyncButton("sync-likes-btn", ["like"]);
+setupSyncButton("sync-bookmarks-btn", ["bookmark"]);
 
-  authSectionEl.innerHTML = `
-    <div class="auth-status disconnected">
-      <span class="dot red"></span> Not connected
-    </div>
-    <a href="${backendUrl}/api/auth/extension-token" target="_blank" class="btn btn-primary" id="connect-btn">
-      Connect to ProfessorX
-    </a>
-    <div class="token-input-section">
-      <input type="text" id="token-input" placeholder="Paste token here..." />
-      <button id="save-token-btn" class="btn btn-small">Save</button>
-    </div>
-  `;
+async function startSync(sources: Array<"like" | "bookmark">): Promise<void> {
+  // Disable all sync buttons
+  const buttons = document.querySelectorAll(".btn") as NodeListOf<HTMLButtonElement>;
+  buttons.forEach((b) => (b.disabled = true));
 
-  document.getElementById('save-token-btn')?.addEventListener('click', async () => {
-    const input = document.getElementById('token-input') as HTMLInputElement;
-    const token = input.value.trim();
-    if (token) {
-      await setToken(token);
-      renderConnected();
-      await refreshStatus();
-    }
-  });
-}
+  progressBar.classList.add("active");
+  progressFill.style.width = "5%";
+  statusEl.textContent = "Starting sync...";
+  statusEl.className = "status";
 
-async function refreshStatus(): Promise<void> {
-  try {
-    const status = await new Promise<SyncStatus>((resolve) => {
-      chrome.runtime.sendMessage({ type: 'GET_STATUS' }, (response) => {
-        resolve(response as SyncStatus);
-      });
+  chrome.runtime.sendMessage({ type: "START_SYNC", sources });
+
+  // Poll for status
+  if (pollInterval) clearInterval(pollInterval);
+  pollInterval = setInterval(async () => {
+    chrome.runtime.sendMessage({ type: "GET_STATUS" }, (response) => {
+      if (!response) return;
+
+      statusEl.textContent = response.status || `${response.scraped} tweets found`;
+
+      // Estimate progress (assume max ~2000 tweets)
+      const pct = Math.min(95, (response.scraped / 20) * 1);
+      progressFill.style.width = `${Math.max(pct, 5)}%`;
+
+      if (!response.active && response.scraped > 0) {
+        // Sync complete
+        progressFill.style.width = "100%";
+        statusEl.textContent = `Done! ${response.scraped} tweets synced (${response.synced} sent to backend)`;
+
+        buttons.forEach((b) => (b.disabled = false));
+        if (pollInterval) {
+          clearInterval(pollInterval);
+          pollInterval = null;
+        }
+      }
     });
-
-    renderStatus(status);
-  } catch {
-    statusEl.innerHTML = '<div class="status-badge idle">Idle</div>';
-  }
+  }, 1000);
 }
 
-function renderStatus(status: SyncStatus): void {
-  const syncState =
-    status.pending > 0
-      ? '<div class="status-badge syncing">Syncing...</div>'
-      : status.errors > 0
-        ? '<div class="status-badge error">Error</div>'
-        : '<div class="status-badge idle">Idle</div>';
+// Disconnect
+document.getElementById("disconnect-btn")!.addEventListener("click", async () => {
+  await clearToken();
+  showNotConnected();
+  statusEl.textContent = "";
+  progressBar.classList.remove("active");
+});
 
-  statusEl.innerHTML = syncState;
-
-  const lastSyncText = status.lastSync
-    ? `Last sync: ${new Date(status.lastSync).toLocaleTimeString()}`
-    : 'Never synced';
-
-  statsEl.innerHTML = `
-    <div class="stat-row">
-      <span class="stat-label">Synced</span>
-      <span class="stat-value">${status.synced}</span>
-    </div>
-    <div class="stat-row">
-      <span class="stat-label">Pending</span>
-      <span class="stat-value">${status.pending}</span>
-    </div>
-    <div class="stat-row">
-      <span class="stat-label">Errors</span>
-      <span class="stat-value">${status.errors}</span>
-    </div>
-    <div class="stat-row last-sync">
-      ${lastSyncText}
-    </div>
-  `;
-}
-
-function checkForTokenInUrl(): void {
-  // Some auth flows pass the token as a query param
-  const params = new URLSearchParams(window.location.search);
-  const token = params.get('token');
-  if (token) {
-    setToken(token).then(() => {
-      renderConnected();
-      refreshStatus();
-    });
-  }
-}
-
-// Initialize popup
 init();

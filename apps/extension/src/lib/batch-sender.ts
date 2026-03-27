@@ -2,8 +2,19 @@
  * Batch sender — accumulates parsed tweets and sends them to the backend in batches.
  */
 
-import type { ParsedTweet } from './tweet-parser';
 import { getToken, getBackendUrl } from './auth';
+
+interface ParsedTweet {
+  twitter_tweet_id: string;
+  author_handle: string;
+  author_display_name: string;
+  author_avatar_url: string | null;
+  text_content: string;
+  media: Array<{ type: string; url: string; preview_url?: string }>;
+  metrics: Record<string, number | undefined>;
+  tweet_type: string;
+  tweet_created_at: string | null;
+}
 
 const MAX_BATCH_SIZE = 50;
 const FLUSH_INTERVAL_MS = 10_000;
@@ -112,7 +123,7 @@ export async function flush(): Promise<void> {
       }
 
       const result = await response.json();
-      syncedCount += result.data?.ingested ?? batch.length;
+      syncedCount += result.total ?? result.inserted ?? batch.length;
       lastSyncTimestamp = Date.now();
 
       console.log(

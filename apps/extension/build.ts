@@ -1,62 +1,60 @@
 /**
- * Build script for the ProfessorX Chrome extension.
+ * Build script for the Chrome extension.
  * Uses esbuild to bundle TypeScript files into the dist/ directory.
  */
 
-import * as esbuild from 'esbuild';
+import * as esbuild from "esbuild";
 
-const isWatch = process.argv.includes('--watch');
+const isWatch = process.argv.includes("--watch");
 
 const commonOptions: esbuild.BuildOptions = {
   bundle: true,
-  format: 'esm',
-  target: 'chrome100',
-  outdir: 'dist',
+  target: "chrome100",
+  outdir: "dist",
   sourcemap: true,
   minify: !isWatch,
-  logLevel: 'info',
+  logLevel: "info",
 };
 
 async function build(): Promise<void> {
-  // Content script — needs to be an IIFE since it runs in page context
-  const contentBuild = esbuild.build({
-    ...commonOptions,
-    entryPoints: ['src/content.ts'],
-    format: 'iife',
-  });
-
   // Background service worker — ESM
   const backgroundBuild = esbuild.build({
     ...commonOptions,
-    entryPoints: ['src/background.ts'],
-    format: 'esm',
+    entryPoints: ["src/background.ts"],
+    format: "esm",
   });
 
-  // Popup script — IIFE for the popup page
+  // Scraper — IIFE (injected into page via chrome.scripting)
+  const scraperBuild = esbuild.build({
+    ...commonOptions,
+    entryPoints: ["src/scraper.ts"],
+    format: "iife",
+  });
+
+  // Popup script — IIFE
   const popupBuild = esbuild.build({
     ...commonOptions,
-    entryPoints: ['src/popup/popup.ts'],
-    format: 'iife',
+    entryPoints: ["src/popup/popup.ts"],
+    format: "iife",
   });
 
-  await Promise.all([contentBuild, backgroundBuild, popupBuild]);
-
-  console.log('Build complete!');
+  await Promise.all([backgroundBuild, scraperBuild, popupBuild]);
+  console.log("Build complete!");
 }
 
 async function watch(): Promise<void> {
   const ctx = await esbuild.context({
     ...commonOptions,
     entryPoints: [
-      'src/content.ts',
-      'src/background.ts',
-      'src/popup/popup.ts',
+      "src/background.ts",
+      "src/scraper.ts",
+      "src/popup/popup.ts",
     ],
-    format: 'esm',
+    format: "esm",
   });
 
   await ctx.watch();
-  console.log('Watching for changes...');
+  console.log("Watching for changes...");
 }
 
 if (isWatch) {
