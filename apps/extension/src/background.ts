@@ -288,6 +288,11 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     return true;
   }
 
+  if (message.type === "PING") {
+    sendResponse({ ok: true });
+    return true;
+  }
+
   if (message.type === "INSPECTOR_READY") {
     sendResponse({ ok: true });
     return true;

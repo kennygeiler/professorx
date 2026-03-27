@@ -45,8 +45,11 @@ function startPolling(): void {
 }
 
 function updateStatus(): void {
-  chrome.runtime.sendMessage({ type: "GET_STATUS" }, (response) => {
-    if (chrome.runtime.lastError || !response) return;
+  // Ping first to wake worker, then get status
+  chrome.runtime.sendMessage({ type: "PING" }, () => {
+    chrome.runtime.lastError; // clear
+    chrome.runtime.sendMessage({ type: "GET_STATUS" }, (response) => {
+      if (chrome.runtime.lastError || !response) return;
 
     const buttons = document.querySelectorAll(".btn") as NodeListOf<HTMLButtonElement>;
 
@@ -76,6 +79,7 @@ function updateStatus(): void {
       statusEl.textContent = response.status || "Ready to sync";
       buttons.forEach((b) => (b.disabled = false));
     }
+    });
   });
 }
 
@@ -112,15 +116,31 @@ document.getElementById("connect-btn")!.addEventListener("click", async () => {
   startPolling();
 });
 
+// Wake the service worker by sending a ping, then send the real message
+async function sendToBackground(msg: Record<string, unknown>): Promise<unknown> {
+  return new Promise((resolve) => {
+    // First ping wakes the worker, second message is the real one
+    chrome.runtime.sendMessage({ type: "PING" }, () => {
+      chrome.runtime.lastError; // clear any error
+      chrome.runtime.sendMessage(msg, (response) => {
+        chrome.runtime.lastError; // clear any error
+        resolve(response);
+      });
+    });
+  });
+}
+
 // Sync buttons
 function setupSyncButton(id: string, sources: Array<"like" | "bookmark">): void {
-  document.getElementById(id)!.addEventListener("click", () => {
-    chrome.runtime.sendMessage({ type: "START_SYNC", sources });
-    statusEl.textContent = "Starting sync...";
+  document.getElementById(id)!.addEventListener("click", async () => {
+    statusEl.textContent = "Waking up...";
     progressBar.classList.add("active");
     progressFill.style.width = "5%";
     const buttons = document.querySelectorAll(".btn") as NodeListOf<HTMLButtonElement>;
     buttons.forEach((b) => (b.disabled = true));
+
+    await sendToBackground({ type: "START_SYNC", sources });
+    statusEl.textContent = "Starting sync...";
   });
 }
 
