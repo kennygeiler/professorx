@@ -111,9 +111,12 @@ export async function categorizeTweets(
     .order('sort_order', { ascending: true });
 
   const categoryList = (categories ?? []).map((c) => c.name);
+  // Case-insensitive lookup — AI might return "Humor" when DB has "humor"
   const categoryNameToId = new Map(
-    (categories ?? []).map((c) => [c.name, c.id])
+    (categories ?? []).map((c) => [c.name.toLowerCase(), c.id])
   );
+
+  result.errors.push(`[DEBUG] DB categories: ${categoryList.join(", ")}`);
 
   // Fetch AI memory
   const memory = await getAiMemory(userId);
@@ -176,7 +179,7 @@ export async function categorizeTweets(
 
         // Create the suggested categories
         for (const catName of suggestion.suggested_categories) {
-          if (!categoryNameToId.has(catName)) {
+          if (!categoryNameToId.has(catName.toLowerCase())) {
             const colorIdx = categoryNameToId.size % CATEGORY_COLORS.length;
             const { data: newCat, error: catError } = await supabase
               .from('categories')
@@ -196,7 +199,7 @@ export async function categorizeTweets(
               continue;
             }
 
-            categoryNameToId.set(catName, newCat.id);
+            categoryNameToId.set(catName.toLowerCase(), newCat.id);
             categoryList.push(catName);
             result.newCategories.push(catName);
           }
@@ -220,7 +223,7 @@ export async function categorizeTweets(
 
         let assigned = false;
         for (const catName of catNames) {
-          const catId = categoryNameToId.get(catName);
+          const catId = categoryNameToId.get(catName.toLowerCase());
           if (!catId) {
             result.errors.push(
               `Unknown category "${catName}" for tweet ${assignment.tweet_id}`
