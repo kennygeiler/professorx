@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import { signOut } from "next-auth/react";
 import { useState } from "react";
 
 const NAV_ITEMS = [
@@ -194,7 +195,7 @@ export function Header() {
       </div>
 
       {/* Nav bar */}
-      <nav className="flex gap-1 px-4 pb-2">
+      <nav className="flex items-center gap-1 px-4 pb-2">
         {NAV_ITEMS.map((item) => {
           const isActive = pathname === item.href;
           return (
@@ -211,6 +212,13 @@ export function Header() {
             </Link>
           );
         })}
+        <div className="flex-1" />
+        <button
+          onClick={() => signOut({ callbackUrl: "/login" })}
+          className="rounded-md px-2.5 py-1 text-xs font-medium text-zinc-600 transition-colors hover:text-red-400"
+        >
+          logout
+        </button>
       </nav>
 
       {/* Test mode panel */}

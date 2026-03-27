@@ -143,6 +143,7 @@ export function LibraryView({ initialTweets, initialCursor }: LibraryViewProps) 
   const [uncategorizedRemaining, setUncategorizedRemaining] = useState<number | null>(null);
 
   const hasActiveFilters = query.length > 0 || !!category || timeRange !== "all";
+  const [filtersOpen, setFiltersOpen] = useState(true);
   const [aiSearching, setAiSearching] = useState(false);
   const [showAiSearch, setShowAiSearch] = useState(false);
 
@@ -306,13 +307,33 @@ export function LibraryView({ initialTweets, initialCursor }: LibraryViewProps) 
             </button>
           </div>
 
-          {/* Tweet count */}
-          {totalCount !== null && (
-            <p className="text-[11px] tabular-nums text-zinc-500">
-              {totalCount.toLocaleString()} tweet{totalCount !== 1 ? "s" : ""}
-              {hasFilters ? " matching" : " total"}
-            </p>
-          )}
+          {/* Tweet count + filter toggle */}
+          <div className="flex items-center justify-between">
+            {totalCount !== null && (
+              <p className="text-[11px] tabular-nums text-zinc-500">
+                {totalCount.toLocaleString()} tweet{totalCount !== 1 ? "s" : ""}
+                {hasFilters ? " matching" : " total"}
+              </p>
+            )}
+            <button
+              onClick={() => setFiltersOpen(!filtersOpen)}
+              className="flex items-center gap-1 text-[11px] text-zinc-500 hover:text-zinc-300 transition-colors"
+            >
+              <svg
+                className={`h-3 w-3 transition-transform ${filtersOpen ? "rotate-180" : ""}`}
+                fill="none"
+                viewBox="0 0 24 24"
+                stroke="currentColor"
+                strokeWidth={2}
+              >
+                <path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" />
+              </svg>
+              {filtersOpen ? "Hide filters" : "Show filters"}
+            </button>
+          </div>
+
+          {/* Collapsible filter section */}
+          {filtersOpen && <>
 
           {/* Source + media type filters */}
           <div className="flex flex-wrap gap-1.5">
@@ -339,7 +360,6 @@ export function LibraryView({ initialTweets, initialCursor }: LibraryViewProps) 
               { value: "photo", label: "Photos" },
               { value: "video", label: "Videos" },
               { value: "quote", label: "Quotes" },
-              { value: "text", label: "Text only" },
             ].map((opt) => (
               <button
                 key={opt.value ?? "all"}
@@ -412,6 +432,8 @@ export function LibraryView({ initialTweets, initialCursor }: LibraryViewProps) 
           {catProgress && (
             <p className="text-xs text-emerald-400">{catProgress}</p>
           )}
+
+          </>}
         </div>
       </div>
 
