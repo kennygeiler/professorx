@@ -237,10 +237,64 @@ document.getElementById("test-btn")!.addEventListener("click", async () => {
   }
 });
 
-// --- Check Selectors ---
-document.getElementById("check-selectors-btn")!.addEventListener("click", () => {
+// --- Check Selectors — runs directly from popup ---
+document.getElementById("check-selectors-btn")!.addEventListener("click", async () => {
   const resultsEl = document.getElementById("selector-results")!;
-  resultsEl.textContent = "Not available — selectors checked during sync.";
+  resultsEl.textContent = "Opening Twitter to check selectors...";
+
+  const tab = await chrome.tabs.create({ url: "https://x.com/home", active: true });
+  if (!tab.id) { resultsEl.textContent = "Failed to open tab"; return; }
+
+  // Wait for load
+  await new Promise<void>((resolve) => {
+    const listener = (tabId: number, info: chrome.tabs.TabChangeInfo) => {
+      if (tabId === tab.id && info.status === "complete") {
+        chrome.tabs.onUpdated.removeListener(listener);
+        resolve();
+      }
+    };
+    chrome.tabs.onUpdated.addListener(listener);
+  });
+
+  await new Promise((r) => setTimeout(r, 3000));
+
+  // Test selectors directly in the tab
+  try {
+    const results = await chrome.scripting.executeScript({
+      target: { tabId: tab.id },
+      func: () => {
+        const selectors: Record<string, string> = {
+          tweetArticle: 'article[data-testid="tweet"], article[role="article"]',
+          tweetText: 'div[data-testid="tweetText"]',
+          statusLink: 'a[href*="/status/"]',
+          avatar: 'img[src*="profile_images"]',
+          time: "time[datetime]",
+          video: "video",
+        };
+        const out: Record<string, number> = {};
+        for (const [name, sel] of Object.entries(selectors)) {
+          out[name] = document.querySelectorAll(sel).length;
+        }
+        return out;
+      },
+    });
+
+    await chrome.tabs.remove(tab.id);
+
+    const data = results[0]?.result as Record<string, number> | undefined;
+    if (!data) { resultsEl.textContent = "No results"; return; }
+
+    resultsEl.innerHTML = Object.entries(data)
+      .map(([name, count]) =>
+        count > 0
+          ? `<div style="color:#22c55e">OK ${name}: ${count}</div>`
+          : `<div style="color:#ef4444">BROKEN ${name}: 0</div>`
+      )
+      .join("");
+  } catch (err) {
+    try { await chrome.tabs.remove(tab.id); } catch {}
+    resultsEl.textContent = `Error: ${err}`;
+  }
 });
 
 // --- Disconnect ---
