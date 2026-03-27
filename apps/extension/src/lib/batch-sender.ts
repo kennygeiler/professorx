@@ -93,15 +93,15 @@ export async function flush(): Promise<void> {
   const payload = {
     tweets: batch.map((t) => ({
       twitter_tweet_id: t.twitter_tweet_id,
-      author_handle: t.author_handle,
-      author_display_name: t.author_display_name,
-      author_avatar_url: t.author_avatar_url,
-      text_content: t.text_content,
-      media: t.media,
-      metrics: t.metrics,
-      tweet_type: t.tweet_type,
+      author_handle: t.author_handle || "unknown",
+      author_display_name: t.author_display_name || "Unknown",
+      author_avatar_url: t.author_avatar_url && t.author_avatar_url.startsWith("http") ? t.author_avatar_url : null,
+      text_content: t.text_content || "",
+      media: (t.media || []).filter((m: any) => m.url && m.url.startsWith("http")),
+      metrics: t.metrics || {},
+      tweet_type: t.tweet_type || "tweet",
       source_type: t.source_type,
-      tweet_created_at: t.tweet_created_at,
+      tweet_created_at: t.tweet_created_at || null,
     })),
   };
 
@@ -119,7 +119,9 @@ export async function flush(): Promise<void> {
       });
 
       if (!response.ok) {
-        throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+        const errorBody = await response.text().catch(() => "");
+        console.error(`[BatchSender] HTTP ${response.status}: ${errorBody}`);
+        throw new Error(`HTTP ${response.status}: ${errorBody || response.statusText}`);
       }
 
       const result = await response.json();

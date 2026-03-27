@@ -20,52 +20,63 @@ let totalScraped = 0;
 
 function parseMetricText(text: string | null): number | undefined {
   if (!text) return undefined;
-  const match = text.match(/([\d,.]+[KMB]?)/i);
+  const match = text.match(/([\d,.]+)\s*([KMB])?/i);
   if (!match) return undefined;
-  let num = match[1].replace(/,/g, "");
-  if (num.endsWith("K") || num.endsWith("k")) return Math.round(parseFloat(num) * 1000);
-  if (num.endsWith("M") || num.endsWith("m")) return Math.round(parseFloat(num) * 1_000_000);
-  if (num.endsWith("B") || num.endsWith("b")) return Math.round(parseFloat(num) * 1_000_000_000);
-  return parseInt(num, 10) || undefined;
+  let num = parseFloat(match[1].replace(/,/g, ""));
+  const suffix = match[2]?.toUpperCase();
+  if (suffix === "K") num *= 1000;
+  if (suffix === "M") num *= 1_000_000;
+  if (suffix === "B") num *= 1_000_000_000;
+  return Math.round(num) || undefined;
 }
 
 function extractTweetFromArticle(article: Element): ScrapedTweet | null {
   try {
-    // Tweet ID from status link
-    const statusLink = article.querySelector('a[href*="/status/"]');
-    if (!statusLink) return null;
-    const href = statusLink.getAttribute("href") ?? "";
-    const idMatch = href.match(/\/status\/(\d+)/);
-    if (!idMatch) return null;
-    const tweetId = idMatch[1];
-
+    // Tweet ID — find any link containing /status/
+    const allLinks = article.querySelectorAll("a[href]");
+    let tweetId: string | null = null;
+    for (const link of allLinks) {
+      const href = link.getAttribute("href") ?? "";
+      const match = href.match(/\/status\/(\d+)/);
+      if (match) {
+        tweetId = match[1];
+        break;
+      }
+    }
+    if (!tweetId) return null;
     if (seenIds.has(tweetId)) return null;
     seenIds.add(tweetId);
 
-    // Author info
-    const userNameDiv = article.querySelector('div[data-testid="User-Name"]');
+    // Author — look for links to user profiles
     let authorHandle = "unknown";
     let authorDisplayName = "Unknown";
-
-    if (userNameDiv) {
-      const spans = userNameDiv.querySelectorAll("span");
-      for (const span of spans) {
-        const text = span.textContent?.trim() ?? "";
-        if (text.startsWith("@")) {
-          authorHandle = text.slice(1);
-        } else if (text && !text.startsWith("·") && text !== "·" && !text.match(/^\d+[smhd]$/) && authorDisplayName === "Unknown") {
-          authorDisplayName = text;
+    for (const link of allLinks) {
+      const href = link.getAttribute("href") ?? "";
+      // Match /{username} but not /status/, /i/, /hashtag/, etc
+      if (href.match(/^\/[A-Za-z0-9_]{1,15}$/) && !href.includes("/status/")) {
+        authorHandle = href.slice(1);
+        // The display name is usually in a nearby span
+        const nameSpan = link.querySelector("span");
+        if (nameSpan?.textContent) {
+          authorDisplayName = nameSpan.textContent.trim();
         }
+        break;
       }
     }
 
     // Avatar
-    const avatarImg = article.querySelector('div[data-testid="Tweet-User-Avatar"] img');
+    const avatarImg = article.querySelector('img[src*="profile_images"]');
     const authorAvatarUrl = avatarImg?.getAttribute("src") ?? null;
 
-    // Tweet text
+    // Tweet text — try data-testid first, fall back to any div with lang attribute
+    let textContent = "";
     const textDiv = article.querySelector('div[data-testid="tweetText"]');
-    const textContent = textDiv?.textContent?.trim() ?? "";
+    if (textDiv) {
+      textContent = textDiv.textContent?.trim() ?? "";
+    } else {
+      const langDiv = article.querySelector('div[lang]');
+      if (langDiv) textContent = langDiv.textContent?.trim() ?? "";
+    }
 
     // Timestamp
     const timeEl = article.querySelector("time");
@@ -73,44 +84,42 @@ function extractTweetFromArticle(article: Element): ScrapedTweet | null {
 
     // Media
     const media: ScrapedTweet["media"] = [];
-    const photos = article.querySelectorAll('div[data-testid="tweetPhoto"] img');
-    for (const img of photos) {
-      const src = img.getAttribute("src");
-      if (src && !src.includes("profile_images")) {
+    const allImgs = article.querySelectorAll("img");
+    for (const img of allImgs) {
+      const src = img.getAttribute("src") ?? "";
+      // Twitter media images contain pbs.twimg.com/media
+      if (src.includes("pbs.twimg.com/media")) {
         media.push({ type: "photo", url: src });
       }
     }
     const videos = article.querySelectorAll("video");
     for (const vid of videos) {
-      const src = vid.getAttribute("src") ?? vid.querySelector("source")?.getAttribute("src");
-      const poster = vid.getAttribute("poster");
+      const src = vid.getAttribute("src") ?? vid.querySelector("source")?.getAttribute("src") ?? "";
+      const poster = vid.getAttribute("poster") ?? "";
       if (src || poster) {
-        media.push({
-          type: "video",
-          url: src ?? poster ?? "",
-          preview_url: poster ?? undefined,
-        });
+        media.push({ type: "video", url: src || poster, preview_url: poster || undefined });
       }
     }
 
-    // Metrics from aria-labels
-    const replyBtn = article.querySelector('button[data-testid="reply"]');
-    const retweetBtn = article.querySelector('button[data-testid="retweet"]');
-    const likeBtn = article.querySelector('button[data-testid="like"], button[data-testid="unlike"]');
-    const viewsGroup = article.querySelector('a[href*="/analytics"]');
-
-    const metrics: ScrapedTweet["metrics"] = {
-      replies: parseMetricText(replyBtn?.getAttribute("aria-label") ?? null),
-      retweets: parseMetricText(retweetBtn?.getAttribute("aria-label") ?? null),
-      likes: parseMetricText(likeBtn?.getAttribute("aria-label") ?? null),
-      views: parseMetricText(viewsGroup?.getAttribute("aria-label") ?? null),
-    };
+    // Metrics — parse from aria-labels on buttons
+    const metrics: ScrapedTweet["metrics"] = {};
+    const buttons = article.querySelectorAll('[role="button"], button');
+    for (const btn of buttons) {
+      const label = btn.getAttribute("aria-label")?.toLowerCase() ?? "";
+      if (label.includes("repl")) metrics.replies = parseMetricText(label);
+      else if (label.includes("repost") || label.includes("retweet")) metrics.retweets = parseMetricText(label);
+      else if (label.includes("like")) metrics.likes = parseMetricText(label);
+      else if (label.includes("view")) metrics.views = parseMetricText(label);
+    }
 
     // Tweet type
     let tweetType = "tweet";
-    const socialContext = article.querySelector('span[data-testid="socialContext"]');
-    if (socialContext?.textContent?.includes("Retweeted")) tweetType = "retweet";
-    if (article.querySelector('div[data-testid="quotedTweet"]')) tweetType = "quote";
+    const articleText = article.textContent?.toLowerCase() ?? "";
+    if (articleText.includes("retweeted")) tweetType = "retweet";
+    if (article.querySelector('div[role="link"]')?.textContent?.includes("@")) {
+      // Embedded quote tweet
+      tweetType = "quote";
+    }
 
     return {
       twitter_tweet_id: tweetId,
@@ -123,13 +132,15 @@ function extractTweetFromArticle(article: Element): ScrapedTweet | null {
       tweet_type: tweetType,
       tweet_created_at: tweetCreatedAt,
     };
-  } catch {
+  } catch (e) {
+    console.warn("[Scraper] Failed to extract tweet:", e);
     return null;
   }
 }
 
 function extractAllTweets(): ScrapedTweet[] {
-  const articles = document.querySelectorAll('article[data-testid="tweet"]');
+  // Try multiple selectors for tweet containers
+  const articles = document.querySelectorAll('article[data-testid="tweet"], article[role="article"]');
   const tweets: ScrapedTweet[] = [];
   for (const article of articles) {
     const tweet = extractTweetFromArticle(article);
@@ -140,23 +151,24 @@ function extractAllTweets(): ScrapedTweet[] {
 
 async function autoScroll(): Promise<void> {
   let noNewTweetsCount = 0;
-  const maxNoNew = 5;
-  const scrollDelay = 1500;
+  const maxNoNew = 8; // More patience
+  const scrollDelay = 2000; // Slower scroll to let DOM render
 
-  // Send status to background
-  const sendStatus = (msg: string) => {
-    console.log(`[Scraper] ${msg}`);
+  const sendMsg = (type: string, data: Record<string, unknown> = {}) => {
     try {
-      chrome.runtime.sendMessage({ type: "SCRAPE_STATUS", message: msg, count: totalScraped });
+      chrome.runtime.sendMessage({ type, ...data });
     } catch (e) {
-      console.warn("[Scraper] Failed to send status:", e);
+      console.warn("[Scraper] sendMessage failed:", e);
     }
   };
 
-  sendStatus("Starting scroll...");
+  console.log("[Scraper] Waiting for page to load...");
+  sendMsg("SCRAPE_STATUS", { message: "Waiting for page to load...", count: 0 });
 
-  // Wait for initial tweets to load
-  await new Promise((r) => setTimeout(r, 3000));
+  // Wait for initial content
+  await new Promise((r) => setTimeout(r, 4000));
+
+  console.log("[Scraper] Starting auto-scroll");
 
   while (noNewTweetsCount < maxNoNew) {
     const beforeCount = seenIds.size;
@@ -165,41 +177,36 @@ async function autoScroll(): Promise<void> {
     const newTweets = extractAllTweets();
     if (newTweets.length > 0) {
       totalScraped += newTweets.length;
-      console.log(`[Scraper] Extracted ${newTweets.length} new tweets (total: ${totalScraped})`);
-      try {
-        chrome.runtime.sendMessage({
-          type: "TWEETS_SCRAPED",
-          tweets: newTweets,
-        });
-      } catch (e) {
-        console.warn("[Scraper] Failed to send tweets:", e);
-      }
-      sendStatus(`Found ${totalScraped} tweets...`);
+      console.log(`[Scraper] +${newTweets.length} tweets (total: ${totalScraped})`);
+      sendMsg("TWEETS_SCRAPED", { tweets: newTweets });
     }
 
-    // Scroll down
-    window.scrollBy(0, 1500);
+    // Scroll
+    window.scrollTo(0, document.body.scrollHeight);
     await new Promise((r) => setTimeout(r, scrollDelay));
 
-    // Check if we got new tweets
+    // Check progress
     if (seenIds.size === beforeCount) {
       noNewTweetsCount++;
-      sendStatus(`Found ${totalScraped} tweets (waiting for more...)`);
+      console.log(`[Scraper] No new tweets (${noNewTweetsCount}/${maxNoNew})`);
     } else {
       noNewTweetsCount = 0;
     }
+
+    sendMsg("SCRAPE_STATUS", { message: `Found ${totalScraped} tweets...`, count: totalScraped });
   }
 
   // Final extraction
   const finalTweets = extractAllTweets();
   if (finalTweets.length > 0) {
     totalScraped += finalTweets.length;
-    chrome.runtime.sendMessage({ type: "TWEETS_SCRAPED", tweets: finalTweets });
+    sendMsg("TWEETS_SCRAPED", { tweets: finalTweets });
   }
 
-  sendStatus(`Done! ${totalScraped} tweets scraped.`);
-  chrome.runtime.sendMessage({ type: "SCRAPE_COMPLETE", count: totalScraped });
+  console.log(`[Scraper] Complete! ${totalScraped} total tweets`);
+  sendMsg("SCRAPE_STATUS", { message: `Done! ${totalScraped} tweets scraped.`, count: totalScraped });
+  sendMsg("SCRAPE_COMPLETE", { count: totalScraped });
 }
 
-// Start immediately when injected
+// Start immediately
 autoScroll();
