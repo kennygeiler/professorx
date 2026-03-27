@@ -1,16 +1,14 @@
 /**
- * Popup script — always shows live sync status.
+ * Popup script — handles everything directly, no service worker dependency.
  */
 
-import { getToken, clearToken, setToken, getTwitterHandle, setTwitterHandle, setBackendUrl } from "../lib/auth";
+import { getToken, clearToken, setToken, getTwitterHandle, setTwitterHandle, setBackendUrl, getBackendUrl } from "../lib/auth";
 
 const notConnectedEl = document.getElementById("not-connected")!;
 const connectedEl = document.getElementById("connected")!;
 const statusEl = document.getElementById("status")!;
 const progressBar = document.getElementById("progress-bar")!;
 const progressFill = document.getElementById("progress-fill")!;
-
-let pollInterval: ReturnType<typeof setInterval> | null = null;
 
 async function init(): Promise<void> {
   const token = await getToken();
@@ -21,8 +19,6 @@ async function init(): Promise<void> {
       const label = document.getElementById("connected-label");
       if (label) label.textContent = `Connected as @${handle}`;
     }
-    // Always start polling — picks up active syncs
-    startPolling();
   } else {
     showNotConnected();
   }
@@ -38,51 +34,22 @@ function showNotConnected(): void {
   connectedEl.style.display = "none";
 }
 
-function startPolling(): void {
-  if (pollInterval) return;
-  updateStatus(); // Immediate first check
-  pollInterval = setInterval(updateStatus, 1000);
+function setStatus(text: string, isError = false): void {
+  statusEl.textContent = text;
+  statusEl.className = isError ? "status error" : "status";
 }
 
-function updateStatus(): void {
-  try { chrome.runtime.connect({ name: "poll" }).disconnect(); } catch {}
-  setTimeout(() => {
-    chrome.runtime.sendMessage({ type: "GET_STATUS" }, (response) => {
-      if (chrome.runtime.lastError || !response) return;
-
-    const buttons = document.querySelectorAll(".btn") as NodeListOf<HTMLButtonElement>;
-
-    if (response.active) {
-      // Sync in progress
-      progressBar.classList.add("active");
-      const pct = Math.min(95, Math.max(5, (response.scraped / 10) * 1));
-      progressFill.style.width = `${pct}%`;
-      statusEl.textContent = response.status || `Scraping... ${response.scraped} tweets found`;
-      buttons.forEach((b) => (b.disabled = true));
-    } else if (response.scraped > 0 || response.synced > 0) {
-      // Sync finished
-      progressBar.classList.add("active");
-      progressFill.style.width = "100%";
-
-      const parts = [];
-      if (response.scraped > 0) parts.push(`${response.scraped} scraped`);
-      if (response.synced > 0) parts.push(`${response.synced} sent to backend`);
-      if (response.errors > 0) parts.push(`${response.errors} errors`);
-      if (response.pending > 0) parts.push(`${response.pending} pending`);
-
-      statusEl.textContent = response.status || parts.join(", ");
-      buttons.forEach((b) => (b.disabled = false));
-    } else {
-      // Idle
-      progressBar.classList.remove("active");
-      statusEl.textContent = response.status || "Ready to sync";
-      buttons.forEach((b) => (b.disabled = false));
-    }
-    });
-  }, 200);
+function setProgress(pct: number): void {
+  progressBar.classList.add("active");
+  progressFill.style.width = `${pct}%`;
 }
 
-// Connect button
+function disableButtons(disabled: boolean): void {
+  const buttons = document.querySelectorAll(".btn") as NodeListOf<HTMLButtonElement>;
+  buttons.forEach((b) => (b.disabled = disabled));
+}
+
+// --- Connect ---
 document.getElementById("connect-btn")!.addEventListener("click", async () => {
   const handleInput = document.getElementById("handle-input") as HTMLInputElement;
   const tokenInput = document.getElementById("token-input") as HTMLInputElement;
@@ -92,17 +59,8 @@ document.getElementById("connect-btn")!.addEventListener("click", async () => {
   const token = tokenInput.value.trim();
   const backendUrl = urlInput?.value.trim();
 
-  if (!handle) {
-    statusEl.textContent = "Please enter your Twitter handle";
-    statusEl.className = "status error";
-    return;
-  }
-
-  if (!token) {
-    statusEl.textContent = "Please enter a token";
-    statusEl.className = "status error";
-    return;
-  }
+  if (!handle) { setStatus("Please enter your Twitter handle", true); return; }
+  if (!token) { setStatus("Please enter an API key", true); return; }
 
   await setTwitterHandle(handle);
   await setToken(token);
@@ -111,65 +69,158 @@ document.getElementById("connect-btn")!.addEventListener("click", async () => {
 
   const label = document.getElementById("connected-label");
   if (label) label.textContent = `Connected as @${handle.replace(/^@/, "")}`;
-  statusEl.textContent = "Connected!";
-  startPolling();
+  setStatus("Connected!");
 });
 
-// Send message to background — uses port to wake the service worker
-async function sendToBackground(msg: Record<string, unknown>): Promise<unknown> {
-  return new Promise((resolve) => {
-    const timeout = setTimeout(() => resolve(null), 5000);
-    try {
-      // chrome.runtime.connect() wakes the service worker in Manifest V3
-      const port = chrome.runtime.connect({ name: "popup" });
-      port.disconnect();
-    } catch {}
+// --- Sync — runs entirely from popup using chrome.tabs + chrome.scripting ---
+async function runSync(sources: Array<"like" | "bookmark">): Promise<void> {
+  disableButtons(true);
+  setProgress(5);
 
-    // Small delay to let the worker start, then send the message
-    setTimeout(() => {
-      chrome.runtime.sendMessage(msg, (response) => {
-        clearTimeout(timeout);
-        chrome.runtime.lastError; // clear
-        resolve(response);
-      });
-    }, 300);
-  });
-}
+  const handle = await getTwitterHandle();
+  if (!handle) {
+    setStatus("Error: No Twitter handle. Disconnect and reconnect.", true);
+    disableButtons(false);
+    return;
+  }
 
-// Sync buttons
-function setupSyncButton(id: string, sources: Array<"like" | "bookmark">): void {
-  document.getElementById(id)!.addEventListener("click", async () => {
-    statusEl.textContent = "Waking up...";
-    progressBar.classList.add("active");
-    progressFill.style.width = "5%";
-    const buttons = document.querySelectorAll(".btn") as NodeListOf<HTMLButtonElement>;
-    buttons.forEach((b) => (b.disabled = true));
+  const token = await getToken();
+  const backendUrl = await getBackendUrl();
+  let totalScraped = 0;
+  let totalSent = 0;
 
-    const result = await sendToBackground({ type: "START_SYNC", sources }) as Record<string, unknown> | null;
-    // Check status immediately after sending
-    setTimeout(() => {
-      chrome.runtime.sendMessage({ type: "GET_STATUS" }, (response) => {
-        chrome.runtime.lastError;
-        if (response?.status?.startsWith("Error")) {
-          statusEl.textContent = response.status;
-          statusEl.className = "status error";
-          buttons.forEach((b) => (b.disabled = false));
-        } else {
-          statusEl.textContent = response?.status || "Starting sync...";
+  for (const source of sources) {
+    const url = source === "like"
+      ? `https://x.com/${handle}/likes`
+      : "https://x.com/i/bookmarks";
+
+    setStatus(`Opening ${source === "like" ? "likes" : "bookmarks"}...`);
+
+    // Open tab
+    const tab = await chrome.tabs.create({ url, active: true });
+    if (!tab.id) { setStatus("Failed to open tab", true); continue; }
+
+    // Wait for page to load
+    await new Promise<void>((resolve) => {
+      chrome.tabs.onUpdated.addListener(function listener(tabId, info) {
+        if (tabId === tab.id && info.status === "complete") {
+          chrome.tabs.onUpdated.removeListener(listener);
+          resolve();
         }
       });
-    }, 500);
-  });
+    });
+
+    setStatus("Page loaded. Injecting scraper...");
+
+    // Inject scraper
+    try {
+      await chrome.scripting.executeScript({
+        target: { tabId: tab.id },
+        files: ["dist/scraper.js"],
+      });
+    } catch (err) {
+      setStatus(`Failed to inject scraper: ${err}`, true);
+      try { await chrome.tabs.remove(tab.id); } catch {}
+      continue;
+    }
+
+    setStatus("Scraping tweets...");
+
+    // Listen for messages from the scraper
+    const scraperDone = await new Promise<number>((resolve) => {
+      const onMessage = (message: any, sender: chrome.runtime.MessageSender) => {
+        if (sender.tab?.id !== tab.id) return;
+
+        if (message.type === "TWEETS_SCRAPED") {
+          const tweets = message.tweets as any[];
+          totalScraped += tweets.length;
+          setStatus(`Found ${totalScraped} tweets...`);
+          setProgress(Math.min(90, 5 + (totalScraped / 10)));
+
+          // Send to backend
+          sendBatch(tweets, source, token!, backendUrl).then((sent) => {
+            totalSent += sent;
+          });
+        }
+
+        if (message.type === "SCRAPE_STATUS") {
+          setStatus(message.message || `Found ${message.count} tweets...`);
+        }
+
+        if (message.type === "SCRAPE_COMPLETE") {
+          chrome.runtime.onMessage.removeListener(onMessage);
+          resolve(message.count);
+        }
+      };
+
+      chrome.runtime.onMessage.addListener(onMessage);
+
+      // Safety timeout — 5 minutes max per source
+      setTimeout(() => {
+        chrome.runtime.onMessage.removeListener(onMessage);
+        resolve(totalScraped);
+      }, 5 * 60 * 1000);
+    });
+
+    // Close tab
+    try { await chrome.tabs.remove(tab.id); } catch {}
+  }
+
+  // Wait a moment for final batches to send
+  await new Promise((r) => setTimeout(r, 2000));
+
+  setProgress(100);
+  setStatus(`Done! ${totalScraped} scraped, ${totalSent} sent to backend.`);
+  disableButtons(false);
 }
 
+async function sendBatch(
+  tweets: any[],
+  sourceType: string,
+  token: string,
+  backendUrl: string
+): Promise<number> {
+  const url = `${backendUrl}/api/tweets/ingest`;
+  const payload = {
+    tweets: tweets.map((t: any) => ({
+      twitter_tweet_id: t.twitter_tweet_id,
+      author_handle: t.author_handle || "unknown",
+      author_display_name: t.author_display_name || "Unknown",
+      author_avatar_url: t.author_avatar_url?.startsWith("http") ? t.author_avatar_url : null,
+      text_content: t.text_content || "",
+      media: (t.media || []).filter((m: any) => m.url?.startsWith("http")),
+      metrics: t.metrics || {},
+      tweet_type: t.tweet_type || "tweet",
+      source_type: sourceType,
+      tweet_created_at: t.tweet_created_at || null,
+    })),
+  };
+
+  try {
+    const res = await fetch(url, {
+      method: "POST",
+      headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+      body: JSON.stringify(payload),
+    });
+    if (res.ok) {
+      const data = await res.json();
+      return data.total ?? data.inserted ?? 0;
+    }
+  } catch {}
+  return 0;
+}
+
+// Wire sync buttons
+function setupSyncButton(id: string, sources: Array<"like" | "bookmark">): void {
+  document.getElementById(id)!.addEventListener("click", () => runSync(sources));
+}
 setupSyncButton("sync-both-btn", ["like", "bookmark"]);
 setupSyncButton("sync-likes-btn", ["like"]);
 setupSyncButton("sync-bookmarks-btn", ["bookmark"]);
 
-// Test connection — do the fetch directly from popup instead of relying on service worker
+// --- Test Connection ---
 document.getElementById("test-btn")!.addEventListener("click", async () => {
-  statusEl.textContent = "Testing...";
-
+  setStatus("Testing...");
   const result = await chrome.storage.local.get(["readxlater_auth_token", "readxlater_backend_url"]);
   const token = result.readxlater_auth_token ?? "";
   const backendUrl = result.readxlater_backend_url ?? "http://localhost:3000";
@@ -185,48 +236,24 @@ document.getElementById("test-btn")!.addEventListener("click", async () => {
       signal: controller.signal,
     });
     clearTimeout(timeout);
-    statusEl.textContent = `${res.status === 200 ? "OK" : res.status} → ${url}`;
+    setStatus(`${res.status === 200 ? "OK" : res.status} → ${url}`);
   } catch (err) {
-    const msg = String(err);
-    if (msg.includes("abort")) {
-      statusEl.textContent = `Timeout — is ${url} reachable?`;
-    } else {
-      statusEl.textContent = `Failed: ${msg}`;
-    }
-    statusEl.className = "status error";
+    setStatus(String(err).includes("abort") ? `Timeout — is ${url} reachable?` : `Failed: ${err}`, true);
   }
 });
 
-// Check selectors
+// --- Check Selectors ---
 document.getElementById("check-selectors-btn")!.addEventListener("click", () => {
   const resultsEl = document.getElementById("selector-results")!;
-  resultsEl.textContent = "Checking selectors (opening Twitter tab)...";
-  chrome.runtime.sendMessage({ type: "RUN_INSPECTION" }, (response) => {
-    if (chrome.runtime.lastError || !response?.results) {
-      resultsEl.textContent = "Inspection failed — are you logged into Twitter?";
-      return;
-    }
-    const lines: string[] = [];
-    for (const [name, result] of Object.entries(response.results) as [string, { found: number }][]) {
-      const icon = result.found > 0 ? "OK" : "BROKEN";
-      lines.push(`${icon} ${name}: ${result.found}`);
-    }
-    resultsEl.innerHTML = lines.map((l) =>
-      l.startsWith("OK") ? `<div style="color:#22c55e">${l}</div>` : `<div style="color:#ef4444">${l}</div>`
-    ).join("");
-  });
+  resultsEl.textContent = "Not available — selectors checked during sync.";
 });
 
-// Disconnect
+// --- Disconnect ---
 document.getElementById("disconnect-btn")!.addEventListener("click", async () => {
   await clearToken();
   showNotConnected();
-  statusEl.textContent = "";
+  setStatus("");
   progressBar.classList.remove("active");
-  if (pollInterval) {
-    clearInterval(pollInterval);
-    pollInterval = null;
-  }
 });
 
 init();
