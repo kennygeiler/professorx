@@ -13,7 +13,7 @@ export function Footer() {
         className="flex w-full items-center justify-center gap-1 px-4 py-3 text-sm text-zinc-500 transition-colors hover:text-zinc-300"
         aria-expanded={isExpanded}
       >
-        <span>Made by Kenny Geiler</span>
+        <span>readXlater</span>
         <svg
           xmlns="http://www.w3.org/2000/svg"
           width="14"

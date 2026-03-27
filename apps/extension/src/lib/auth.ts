@@ -4,12 +4,13 @@
  */
 
 const STORAGE_KEYS = {
-  AUTH_TOKEN: 'professorx_auth_token',
-  BACKEND_URL: 'professorx_backend_url',
-  TWITTER_HANDLE: 'professorx_twitter_handle',
+  AUTH_TOKEN: 'readxlater_auth_token',
+  BACKEND_URL: 'readxlater_backend_url',
+  TWITTER_HANDLE: 'readxlater_twitter_handle',
 } as const;
 
-const DEFAULT_BACKEND_URL = 'https://likesscrapper.vercel.app';
+// Change this to your deployed URL, or leave as localhost for local dev
+const DEFAULT_BACKEND_URL = 'http://localhost:3000';
 
 /**
  * Get the stored auth token.

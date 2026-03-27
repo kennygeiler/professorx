@@ -57,8 +57,8 @@ this means you're reading the same DOM you see when you manually scroll Twitter.
 ### 5 minutes: get the web app running
 
 ```bash
-git clone https://github.com/kennygeiler/professorx.git
-cd professorx
+git clone https://github.com/YOUR_USERNAME/readxlater.git
+cd readxlater
 pnpm install
 
 # set up supabase (see environment variables below)
@@ -299,7 +299,7 @@ Twitter OAuth scopes needed: `users.read`, `tweet.read`, `like.read`, `bookmark.
 
 ### extension
 
-update the default backend URL in `apps/extension/src/lib/auth.ts` to your production domain, then rebuild:
+**important:** update the default backend URL in `apps/extension/src/lib/auth.ts` to your deployed domain. the extension defaults to `http://localhost:3000` for local dev.
 
 ```bash
 cd apps/extension
@@ -338,6 +338,31 @@ four tables in supabase (postgres):
 full-text search via trigger on `text_content` + `author_handle` + `author_display_name`.
 
 run migrations in `supabase/migrations/` in order (001 through 005).
+
+## self-deploy checklist
+
+everything runs on your own infrastructure with your own keys. nothing is shared.
+
+| what | where to get it | cost |
+|------|----------------|------|
+| **supabase** | [supabase.com](https://supabase.com) | free tier works |
+| **twitter oauth** | [developer.x.com](https://developer.x.com) | free (login only, no API reads) |
+| **openai** | [platform.openai.com](https://platform.openai.com) | ~$0.01 per 100 tweets categorized (gpt-4o-mini) |
+| **vercel** (optional) | [vercel.com](https://vercel.com) | free tier works |
+
+steps:
+1. fork this repo
+2. create a supabase project, run migrations
+3. create a twitter developer app with OAuth 2.0
+4. get an openai API key
+5. copy `apps/web/.env.example` to `.env.local`, fill in your keys
+6. update `apps/extension/src/lib/auth.ts` with your backend URL
+7. `pnpm install && pnpm dev`
+8. build the extension: `cd apps/extension && npx tsx build.ts`
+9. load unpacked in chrome, connect with your token
+10. sync and categorize
+
+no data leaves your deployment. tweets are stored in your supabase. AI calls go to your openai key. the extension talks only to your backend.
 
 ## contributing
 
