@@ -93,6 +93,10 @@
         <input type="text" id="backend-url" placeholder="https://likesscrapper.vercel.app" />
       </div>
       <div class="section">
+        <label>Your X / Twitter handle</label>
+        <input type="text" id="handle-input" placeholder="@yourhandle" />
+      </div>
+      <div class="section">
         <label>Auth Token (from web app settings)</label>
         <input type="text" id="token-input" placeholder="Paste your token here" />
       </div>
@@ -100,7 +104,7 @@
     </div>
 
     <div id="connected" style="display:none">
-      <p class="connected">Connected</p>
+      <p class="connected" id="connected-label">Connected</p>
 
       <div class="progress-bar" id="progress-bar">
         <div class="progress-fill" id="progress-fill"></div>

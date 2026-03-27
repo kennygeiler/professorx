@@ -2,7 +2,7 @@
  * Popup script — UI for the extension popup.
  */
 
-import { getToken, clearToken, setToken, setBackendUrl } from "../lib/auth";
+import { getToken, clearToken, setToken, setBackendUrl, getTwitterHandle, setTwitterHandle } from "../lib/auth";
 
 const notConnectedEl = document.getElementById("not-connected")!;
 const connectedEl = document.getElementById("connected")!;
@@ -16,6 +16,11 @@ async function init(): Promise<void> {
   const token = await getToken();
   if (token) {
     showConnected();
+    const handle = await getTwitterHandle();
+    if (handle) {
+      const label = document.getElementById("connected-label");
+      if (label) label.textContent = `Connected as @${handle}`;
+    }
   } else {
     showNotConnected();
   }
@@ -34,10 +39,18 @@ function showNotConnected(): void {
 // Connect button
 document.getElementById("connect-btn")!.addEventListener("click", async () => {
   const urlInput = document.getElementById("backend-url") as HTMLInputElement;
+  const handleInput = document.getElementById("handle-input") as HTMLInputElement;
   const tokenInput = document.getElementById("token-input") as HTMLInputElement;
 
   const url = urlInput.value.trim();
+  const handle = handleInput.value.trim();
   const token = tokenInput.value.trim();
+
+  if (!handle) {
+    statusEl.textContent = "Please enter your Twitter handle";
+    statusEl.className = "status error";
+    return;
+  }
 
   if (!token) {
     statusEl.textContent = "Please enter a token";
@@ -45,11 +58,13 @@ document.getElementById("connect-btn")!.addEventListener("click", async () => {
     return;
   }
 
-  if (url) {
-    await setBackendUrl(url);
-  }
+  if (url) await setBackendUrl(url);
+  await setTwitterHandle(handle);
   await setToken(token);
   showConnected();
+
+  const label = document.getElementById("connected-label");
+  if (label) label.textContent = `Connected as @${handle.replace(/^@/, "")}`;
   statusEl.textContent = "Connected!";
 });
 

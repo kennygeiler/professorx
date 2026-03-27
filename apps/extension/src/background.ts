@@ -4,6 +4,7 @@
  */
 
 import { addTweets, flush, getStatus } from "./lib/batch-sender";
+import { getTwitterHandle } from "./lib/auth";
 
 interface SyncState {
   active: boolean;
@@ -35,9 +36,18 @@ async function startSync(source: "like" | "bookmark"): Promise<void> {
   state.count = 0;
   state.status = `Opening ${source === "like" ? "likes" : "bookmarks"}...`;
 
-  const url = source === "like"
-    ? "https://x.com/likes"
-    : "https://x.com/i/bookmarks";
+  let url: string;
+  if (source === "like") {
+    const handle = await getTwitterHandle();
+    if (!handle) {
+      state.status = "Error: No Twitter handle set. Reconnect with your handle.";
+      state.active = false;
+      return;
+    }
+    url = `https://x.com/${handle}/likes`;
+  } else {
+    url = "https://x.com/i/bookmarks";
+  }
 
   // Open a new tab
   const tab = await chrome.tabs.create({ url, active: false });

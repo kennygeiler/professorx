@@ -6,6 +6,7 @@
 const STORAGE_KEYS = {
   AUTH_TOKEN: 'professorx_auth_token',
   BACKEND_URL: 'professorx_backend_url',
+  TWITTER_HANDLE: 'professorx_twitter_handle',
 } as const;
 
 const DEFAULT_BACKEND_URL = 'https://likesscrapper.vercel.app';
@@ -45,4 +46,13 @@ export async function getBackendUrl(): Promise<string> {
  */
 export async function setBackendUrl(url: string): Promise<void> {
   await chrome.storage.local.set({ [STORAGE_KEYS.BACKEND_URL]: url });
+}
+
+export async function getTwitterHandle(): Promise<string | null> {
+  const result = await chrome.storage.local.get(STORAGE_KEYS.TWITTER_HANDLE);
+  return (result[STORAGE_KEYS.TWITTER_HANDLE] as string) ?? null;
+}
+
+export async function setTwitterHandle(handle: string): Promise<void> {
+  await chrome.storage.local.set({ [STORAGE_KEYS.TWITTER_HANDLE]: handle.replace(/^@/, '') });
 }
