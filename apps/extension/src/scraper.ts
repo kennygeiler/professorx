@@ -169,12 +169,16 @@ interface ScrapedTweet {
 
   if (buffer.length > 0) totalSent += await sendBatch(buffer);
 
-  setStatus(`Done! ${totalScraped} found, ${totalSent} sent`);
+  setStatus(`Done! ${totalScraped} found, ${totalSent} sent. Redirecting...`);
   setBar(100);
 
   await chrome.storage.local.set({
     readxlater_scraper: { status: `Done! ${totalScraped} found, ${totalSent} sent`, count: totalScraped, sent: totalSent, done: true, timestamp: Date.now() },
+    readxlater_flash: { message: `Synced ${totalSent} tweets`, timestamp: Date.now() },
   });
 
-  setTimeout(() => overlay.remove(), 8000);
+  // Redirect to library after 2 seconds with flash message in URL
+  setTimeout(() => {
+    window.location.href = `${backendUrl}?synced=${totalSent}`;
+  }, 2000);
 })();

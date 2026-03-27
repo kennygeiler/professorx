@@ -25,6 +25,19 @@ interface LibraryViewProps {
 }
 
 export function LibraryView({ initialTweets, initialCursor }: LibraryViewProps) {
+  const [flashMessage, setFlashMessage] = useState<string | null>(null);
+
+  // Show flash message from sync redirect (?synced=123)
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const synced = params.get("synced");
+    if (synced) {
+      setFlashMessage(`Synced ${synced} tweets from Twitter`);
+      window.history.replaceState({}, "", "/");
+      setTimeout(() => setFlashMessage(null), 5000);
+    }
+  }, []);
+
   const { query, setQuery, debouncedQuery } = useSearch(200);
   const [category, setCategory] = useState<string | null>(null);
   const [timeRange, setTimeRange] = useState<TimeRange>("all");
@@ -282,6 +295,18 @@ export function LibraryView({ initialTweets, initialCursor }: LibraryViewProps) 
 
   return (
     <div className="mx-auto max-w-2xl">
+      {/* Flash message */}
+      {flashMessage && (
+        <div className="mb-3 flex items-center justify-between rounded-lg border border-[#1d9bf0]/30 bg-[#1d9bf0]/10 px-4 py-2.5">
+          <span className="text-sm font-medium text-[#1d9bf0]">{flashMessage}</span>
+          <button onClick={() => setFlashMessage(null)} className="text-[#1d9bf0]/60 hover:text-[#1d9bf0]">
+            <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+            </svg>
+          </button>
+        </div>
+      )}
+
       {/* Filter bar */}
       <div className="sticky top-0 z-10 bg-zinc-950/95 pb-4 pt-1 sm:pb-6 sm:pt-2 backdrop-blur">
         <div className="flex flex-col gap-2 sm:gap-3">
