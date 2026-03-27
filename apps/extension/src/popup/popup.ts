@@ -72,7 +72,7 @@ document.getElementById("connect-btn")!.addEventListener("click", async () => {
   setStatus("Connected!");
 });
 
-// --- Sync — just opens the tab. Scraper handles everything from there. ---
+// --- Sync — sets flag in storage, opens URL. Content script does the rest. ---
 async function runSync(sources: Array<"like" | "bookmark">): Promise<void> {
   const handle = await getTwitterHandle();
   if (!handle) {
@@ -80,35 +80,19 @@ async function runSync(sources: Array<"like" | "bookmark">): Promise<void> {
     return;
   }
 
-  // Clear previous state
+  const source = sources[0]; // Do one at a time
+  const url = source === "like"
+    ? `https://x.com/${handle}/likes`
+    : "https://x.com/i/bookmarks";
+
+  // Set the sync flag — the content script checks for this
+  await chrome.storage.local.set({ readxlater_sync: { source } });
   await chrome.storage.local.remove("readxlater_scraper");
 
-  for (const source of sources) {
-    const url = source === "like"
-      ? `https://x.com/${handle}/likes`
-      : "https://x.com/i/bookmarks";
+  // Open the page — content script auto-runs and picks up the flag
+  window.open(url);
 
-    setStatus(`Opening ${source === "like" ? "likes" : "bookmarks"}...`);
-
-    // Open tab — scraper auto-injects via content_scripts in manifest
-    // But we need to inject manually since it's not a content script
-    const tab = await chrome.tabs.create({ url, active: true });
-
-    if (tab.id) {
-      // Wait for load, then inject
-      chrome.tabs.onUpdated.addListener(function listener(tabId, info) {
-        if (tabId === tab.id && info.status === "complete") {
-          chrome.tabs.onUpdated.removeListener(listener);
-          chrome.scripting.executeScript({
-            target: { tabId: tabId },
-            files: ["dist/scraper.js"],
-          }).catch(() => {});
-        }
-      });
-    }
-  }
-
-  setStatus("Scraper running in the Twitter tab. Watch the overlay there.");
+  setStatus("Opened Twitter tab. Watch the overlay in the bottom-right corner.");
   setProgress(50);
 }
 
