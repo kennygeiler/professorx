@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { auth } from "@/lib/auth/config";
+import { getLocalUserId } from "@/lib/auth/local-user";
 import {
   updateCategory,
   deleteCategory,
@@ -9,10 +9,7 @@ export async function PATCH(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
-  const session = await auth();
-  if (!session?.user?.id) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  }
+  const userId = await getLocalUserId();
 
   const { id } = await params;
 
@@ -31,7 +28,7 @@ export async function PATCH(
   }
 
   try {
-    const updated = await updateCategory(session.user.id, id, body);
+    const updated = await updateCategory(userId, id, body);
     return NextResponse.json({ category: updated });
   } catch (err) {
     const message = err instanceof Error ? err.message : "Update failed";
@@ -43,15 +40,12 @@ export async function DELETE(
   _request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
-  const session = await auth();
-  if (!session?.user?.id) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  }
+  const userId = await getLocalUserId();
 
   const { id } = await params;
 
   try {
-    await deleteCategory(session.user.id, id);
+    await deleteCategory(userId, id);
     return NextResponse.json({ success: true });
   } catch (err) {
     const message = err instanceof Error ? err.message : "Delete failed";

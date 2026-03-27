@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { auth } from "@/lib/auth/config";
+import { getLocalUserId } from "@/lib/auth/local-user";
 import { createAdminClient } from "@/lib/supabase/admin";
 
 const DEFAULT_SETTINGS = {
@@ -9,16 +9,13 @@ const DEFAULT_SETTINGS = {
 };
 
 export async function GET() {
-  const session = await auth();
-  if (!session?.user?.id) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  }
+  const userId = await getLocalUserId();
 
   const supabase = createAdminClient();
   const { data, error } = await supabase
     .from("users")
     .select("settings")
-    .eq("id", session.user.id)
+    .eq("id", userId)
     .single();
 
   if (error || !data) {
@@ -31,10 +28,7 @@ export async function GET() {
 }
 
 export async function PATCH(request: NextRequest) {
-  const session = await auth();
-  if (!session?.user?.id) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  }
+  const userId = await getLocalUserId();
 
   let body: Record<string, unknown>;
   try {
@@ -49,7 +43,7 @@ export async function PATCH(request: NextRequest) {
   const { data: current } = await supabase
     .from("users")
     .select("settings")
-    .eq("id", session.user.id)
+    .eq("id", userId)
     .single();
 
   const merged = {
@@ -61,7 +55,7 @@ export async function PATCH(request: NextRequest) {
   const { error } = await supabase
     .from("users")
     .update({ settings: merged as unknown as Record<string, unknown> })
-    .eq("id", session.user.id);
+    .eq("id", userId);
 
   if (error) {
     return NextResponse.json(

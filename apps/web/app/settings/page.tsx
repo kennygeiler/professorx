@@ -144,29 +144,14 @@ export default function SettingsPage() {
             </SettingsSection>
 
             <SettingsSection title="Chrome Extension">
-              <div className="space-y-3 py-2">
+              <div className="space-y-2 py-2">
                 <p className="text-xs text-zinc-500">
-                  Sync tweets without using the Twitter API. Install the extension, paste the token below into it.
+                  The extension syncs your tweets by scrolling your Twitter likes page.
+                  Connect it using the API_KEY from your .env file.
                 </p>
-                <button
-                  onClick={async () => {
-                    try {
-                      const res = await fetch("/api/auth/extension-token");
-                      if (!res.ok) throw new Error();
-                      const { token } = await res.json();
-                      await navigator.clipboard.writeText(token);
-                      const btn = document.getElementById("copy-token-btn");
-                      if (btn) btn.textContent = "Copied!";
-                      setTimeout(() => { if (btn) btn.textContent = "Copy Extension Token"; }, 2000);
-                    } catch {
-                      alert("Failed to generate token. Make sure you're logged in.");
-                    }
-                  }}
-                  id="copy-token-btn"
-                  className="w-full rounded-lg bg-zinc-800 px-4 py-2.5 text-sm font-medium text-zinc-300 transition-colors hover:bg-zinc-700 hover:text-zinc-100"
-                >
-                  Copy Extension Token
-                </button>
+                <div className="rounded-lg bg-zinc-800/50 p-3 text-xs text-zinc-400 font-mono">
+                  API_KEY from .env → paste into extension popup
+                </div>
               </div>
             </SettingsSection>
 

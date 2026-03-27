@@ -1,142 +1,33 @@
 import { NextResponse } from "next/server";
-import { auth } from "@/lib/auth/config";
-import { fetchLikedTweets, fetchBookmarks } from "@/lib/twitter/client";
-import { ingestTweets } from "@/lib/services/tweet-ingestion";
+import { getLocalUserId } from "@/lib/auth/local-user";
 import { createAdminClient } from "@/lib/supabase/admin";
 
 export const maxDuration = 60;
 
-export async function POST(request: Request) {
-  const session = await auth();
-  if (!session?.user?.id) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  }
+export async function POST() {
+  const userId = await getLocalUserId();
 
-  const accessToken = (session as any).accessToken as string | undefined;
-  const twitterId = (session as any).twitterId as string | undefined;
-
-  if (!accessToken) {
-    return NextResponse.json(
-      { error: "No Twitter access token. Please re-login." },
-      { status: 401 }
-    );
-  }
-
-  if (!twitterId) {
-    return NextResponse.json(
-      { error: "No Twitter user ID. Please re-login." },
-      { status: 401 }
-    );
-  }
-
-  // Accept optional pagination tokens from client
-  let body: { paginationToken?: string; bookmarkPaginationToken?: string } = {};
-  try {
-    body = await request.json();
-  } catch {
-    // No body is fine — first page
-  }
-
-  const userId = session.user.id;
-
-  // Ensure user exists in DB (session.user.id is stable via twitter_id lookup)
+  // Ensure user exists in DB
   const supabase = createAdminClient();
   await supabase.from("users").upsert(
-    {
-      id: userId,
-      twitter_id: twitterId,
-      display_name: session.user.name ?? null,
-      avatar_url: session.user.image ?? null,
-    },
+    { id: userId },
     { onConflict: "id" }
   );
 
-  try {
-    // Fetch ONE page of likes (up to 100 tweets) per request
-    const result = await fetchLikedTweets(
-      twitterId,
-      accessToken,
-      body.paginationToken
-    );
+  // No Twitter API sync — tweets come in via the ingest endpoint from the extension.
+  // This endpoint now just confirms the user exists and returns a no-op response.
+  const { count: totalTweets } = await supabase
+    .from("tweets")
+    .select("id", { count: "exact", head: true })
+    .eq("user_id", userId);
 
-    let inserted = 0;
-    let updated = 0;
-    const errors: string[] = [];
-
-    if (result.tweets.length > 0) {
-      const tweetsWithSource = result.tweets.map((t) => ({
-        ...t,
-        source_type: "like" as const,
-      }));
-
-      const ingested = await ingestTweets(userId, tweetsWithSource);
-      inserted = ingested.inserted;
-      updated = ingested.updated;
-      errors.push(...ingested.errors);
-    }
-
-    // Also fetch bookmarks if enabled in user settings
-    const { data: userData } = await supabase
-      .from("users")
-      .select("settings")
-      .eq("id", userId)
-      .single();
-
-    const settings = (userData?.settings ?? {}) as Record<string, boolean>;
-    let bookmarkNextToken: string | null = null;
-
-    if (settings.sync_bookmarks) {
-      try {
-        const bookmarkResult = await fetchBookmarks(
-          accessToken,
-          body.bookmarkPaginationToken
-        );
-
-        if (bookmarkResult.tweets.length > 0) {
-          const bookmarksWithSource = bookmarkResult.tweets.map((t) => ({
-            ...t,
-            source_type: "bookmark" as const,
-          }));
-
-          const bookmarkIngested = await ingestTweets(userId, bookmarksWithSource);
-          inserted += bookmarkIngested.inserted;
-          updated += bookmarkIngested.updated;
-          errors.push(...bookmarkIngested.errors);
-        }
-
-        bookmarkNextToken = bookmarkResult.nextToken ?? null;
-      } catch (bookmarkErr) {
-        const msg = bookmarkErr instanceof Error ? bookmarkErr.message : String(bookmarkErr);
-        errors.push(`Bookmark sync: ${msg}`);
-      }
-    }
-
-    return NextResponse.json({
-      inserted,
-      updated,
-      errors,
-      nextToken: result.nextToken ?? null,
-      bookmarkNextToken: bookmarkNextToken,
-      tweetCount: result.tweets.length,
-      message: `Synced ${inserted} new, ${updated} updated (${result.tweets.length} fetched)`,
-    });
-  } catch (e) {
-    const errorMsg = e instanceof Error ? e.message : String(e);
-    if (errorMsg.startsWith("TOKEN_EXPIRED:")) {
-      return NextResponse.json(
-        { error: errorMsg.replace("TOKEN_EXPIRED: ", "") },
-        { status: 401 }
-      );
-    }
-    if (errorMsg.startsWith("RATE_LIMITED:")) {
-      return NextResponse.json(
-        { error: errorMsg.replace("RATE_LIMITED: ", "") },
-        { status: 429 }
-      );
-    }
-    return NextResponse.json(
-      { error: `Sync failed: ${errorMsg}` },
-      { status: 500 }
-    );
-  }
+  return NextResponse.json({
+    inserted: 0,
+    updated: 0,
+    errors: [],
+    nextToken: null,
+    bookmarkNextToken: null,
+    tweetCount: totalTweets ?? 0,
+    message: "Sync is handled by the browser extension. Use the extension to import tweets.",
+  });
 }

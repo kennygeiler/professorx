@@ -1,12 +1,7 @@
-import { auth } from "@/lib/auth/config";
-import { redirect } from "next/navigation";
 import { Header } from "@/components/layout/header";
 import { CategoryManager } from "@/components/categories/category-manager";
 
-export default async function CategoriesSettingsPage() {
-  const session = await auth();
-  if (!session) redirect("/login");
-
+export default function CategoriesSettingsPage() {
   return (
     <div className="min-h-screen bg-zinc-950 text-zinc-100">
       <Header />

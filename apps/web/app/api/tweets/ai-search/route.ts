@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { auth } from "@/lib/auth/config";
+import { getLocalUserId } from "@/lib/auth/local-user";
 import { createAdminClient } from "@/lib/supabase/admin";
 import OpenAI from "openai";
 
@@ -8,10 +8,7 @@ export const maxDuration = 60;
 const BATCH_SIZE = 50;
 
 export async function POST(request: NextRequest) {
-  const session = await auth();
-  if (!session?.user?.id) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  }
+  const userId = await getLocalUserId();
 
   let body: { query: string };
   try {
@@ -31,7 +28,7 @@ export async function POST(request: NextRequest) {
   const { data: tweets, error } = await supabase
     .from("tweets")
     .select("id, text_content, author_handle")
-    .eq("user_id", session.user.id)
+    .eq("user_id", userId)
     .order("tweet_created_at", { ascending: false })
     .limit(500);
 

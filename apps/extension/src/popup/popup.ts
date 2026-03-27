@@ -2,7 +2,7 @@
  * Popup script — always shows live sync status.
  */
 
-import { getToken, clearToken, setToken, getTwitterHandle, setTwitterHandle } from "../lib/auth";
+import { getToken, clearToken, setToken, getTwitterHandle, setTwitterHandle, setBackendUrl } from "../lib/auth";
 
 const notConnectedEl = document.getElementById("not-connected")!;
 const connectedEl = document.getElementById("connected")!;
@@ -83,9 +83,11 @@ function updateStatus(): void {
 document.getElementById("connect-btn")!.addEventListener("click", async () => {
   const handleInput = document.getElementById("handle-input") as HTMLInputElement;
   const tokenInput = document.getElementById("token-input") as HTMLInputElement;
+  const urlInput = document.getElementById("backend-url") as HTMLInputElement;
 
   const handle = handleInput.value.trim();
   const token = tokenInput.value.trim();
+  const backendUrl = urlInput?.value.trim();
 
   if (!handle) {
     statusEl.textContent = "Please enter your Twitter handle";
@@ -101,6 +103,7 @@ document.getElementById("connect-btn")!.addEventListener("click", async () => {
 
   await setTwitterHandle(handle);
   await setToken(token);
+  if (backendUrl) await setBackendUrl(backendUrl);
   showConnected();
 
   const label = document.getElementById("connected-label");

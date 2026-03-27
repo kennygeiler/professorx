@@ -93,8 +93,12 @@
         <input type="text" id="handle-input" placeholder="@yourhandle" />
       </div>
       <div class="section">
-        <label>Auth Token (from web app Settings page)</label>
-        <input type="text" id="token-input" placeholder="Paste your token here" />
+        <label>API Key (from your .env file)</label>
+        <input type="text" id="token-input" placeholder="Paste API_KEY from .env" />
+      </div>
+      <div class="section">
+        <label>Backend URL (default: http://localhost:3000)</label>
+        <input type="text" id="backend-url" placeholder="http://localhost:3000" />
       </div>
       <button class="btn btn-primary" id="connect-btn">Connect</button>
     </div>

@@ -1,12 +1,9 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getEffectiveUserId } from "@/lib/auth/resolve-user";
+import { getLocalUserId } from "@/lib/auth/local-user";
 import { createAdminClient } from "@/lib/supabase/admin";
 
 export async function GET() {
-  const userId = await getEffectiveUserId();
-  if (!userId) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  }
+  const userId = await getLocalUserId();
 
   const supabase = createAdminClient();
 
@@ -27,10 +24,7 @@ export async function GET() {
 }
 
 export async function POST(request: NextRequest) {
-  const userId = await getEffectiveUserId();
-  if (!userId) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  }
+  const userId = await getLocalUserId();
 
   let body: { name: string; color?: string };
   try {

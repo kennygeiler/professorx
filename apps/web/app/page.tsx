@@ -1,7 +1,7 @@
-import { redirect } from "next/navigation";
-import { auth } from "@/lib/auth/config";
+export const dynamic = "force-dynamic";
+
 import { createAdminClient } from "@/lib/supabase/admin";
-import { resolveUserWithTweets } from "@/lib/auth/resolve-user";
+import { getLocalUserId } from "@/lib/auth/local-user";
 import { EmptyState } from "@/components/tweets/empty-state";
 import { LibraryView } from "@/components/library/library-view";
 import { Header } from "@/components/layout/header";
@@ -70,12 +70,7 @@ async function getInitialTweets(
 }
 
 export default async function LibraryPage() {
-  const session = await auth();
-  if (!session?.user?.id) redirect("/login");
-
-  const twitterId = (session as any).twitterId as string | undefined;
-  const userId = await resolveUserWithTweets(session.user.id, twitterId);
-
+  const userId = await getLocalUserId();
   const { tweets, nextCursor } = await getInitialTweets(userId);
 
   if (tweets.length === 0) {

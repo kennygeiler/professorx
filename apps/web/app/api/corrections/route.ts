@@ -1,14 +1,11 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { auth } from '@/lib/auth/config';
+import { getLocalUserId } from '@/lib/auth/local-user';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { addCorrection, addCategoryRule } from '@/lib/services/ai-memory';
 import { extractRule } from '@/lib/services/category-rules';
 
 export async function POST(request: NextRequest) {
-  const session = await auth();
-  if (!session?.user?.id) {
-    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-  }
+  const userId = await getLocalUserId();
 
   let body: {
     tweetId: string;
@@ -98,7 +95,7 @@ export async function POST(request: NextRequest) {
 
   // Add correction to AI memory
   try {
-    await addCorrection(session.user.id, {
+    await addCorrection(userId, {
       tweet_text: tweet?.text_content ?? '',
       tweet_id: tweetId,
       original_category: originalCategory,
@@ -114,7 +111,7 @@ export async function POST(request: NextRequest) {
   if (reason && reason.trim()) {
     try {
       const rule = extractRule(originalCategory, correctedCat.name, reason);
-      await addCategoryRule(session.user.id, rule);
+      await addCategoryRule(userId, rule);
     } catch (err) {
       console.error('Failed to save category rule:', err);
     }
@@ -124,7 +121,7 @@ export async function POST(request: NextRequest) {
   const { data: allUserCats } = await supabase
     .from('categories')
     .select('id')
-    .eq('user_id', session.user.id);
+    .eq('user_id', userId);
   for (const cat of allUserCats ?? []) {
     const { count } = await supabase
       .from('tweet_categories')

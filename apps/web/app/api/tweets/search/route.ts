@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getEffectiveUserId } from "@/lib/auth/resolve-user";
+import { getLocalUserId } from "@/lib/auth/local-user";
 import { createAdminClient } from "@/lib/supabase/admin";
 
 function getDateFromTimeRange(timeRange: string): Date | null {
@@ -29,10 +29,7 @@ function getDateFromTimeRange(timeRange: string): Date | null {
 }
 
 export async function GET(request: NextRequest) {
-  const userId = await getEffectiveUserId();
-  if (!userId) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  }
+  const userId = await getLocalUserId();
 
   const { searchParams } = request.nextUrl;
   const q = searchParams.get("q") ?? "";

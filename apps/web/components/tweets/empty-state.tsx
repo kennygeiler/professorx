@@ -19,10 +19,10 @@ export function EmptyState() {
         {/* Steps */}
         <div className="space-y-2 text-left">
           {[
-            { step: "1", text: "Install the Chrome extension" },
-            { step: "2", text: "Go to Settings → copy your extension token" },
-            { step: "3", text: "Paste token in the extension popup + your @handle" },
-            { step: "4", text: "Click \"Sync Likes & Bookmarks\" — it scrolls automatically" },
+            { step: "1", text: "Install the Chrome extension (load unpacked from apps/extension)" },
+            { step: "2", text: "Enter your @handle + API_KEY from .env in the extension popup" },
+            { step: "3", text: "Click \"Sync Likes & Bookmarks\" — it scrolls automatically" },
+            { step: "4", text: "Come back here and click Categorize" },
           ].map((item) => (
             <div
               key={item.step}

@@ -1,12 +1,9 @@
 import { NextRequest, NextResponse } from "next/server";
-import { auth } from "@/lib/auth/config";
+import { getLocalUserId } from "@/lib/auth/local-user";
 import { mergeCategories } from "@/lib/services/category-management";
 
 export async function POST(request: NextRequest) {
-  const session = await auth();
-  if (!session?.user?.id) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  }
+  const userId = await getLocalUserId();
 
   let body: { sourceId: string; targetId: string };
   try {
@@ -32,7 +29,7 @@ export async function POST(request: NextRequest) {
   }
 
   try {
-    await mergeCategories(session.user.id, sourceId, targetId);
+    await mergeCategories(userId, sourceId, targetId);
     return NextResponse.json({ success: true });
   } catch (err) {
     const message = err instanceof Error ? err.message : "Merge failed";

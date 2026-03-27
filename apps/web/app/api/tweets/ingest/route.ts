@@ -1,46 +1,20 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { jwtVerify } from 'jose';
+import { validateApiKey, getLocalUserId } from '@/lib/auth/local-user';
 import { IngestRequestSchema } from '@shared/schemas/ingest';
 import { MAX_INGEST_BATCH_SIZE } from '@shared/constants';
 import { ingestTweets } from '@/lib/services/tweet-ingestion';
 
-function getJwtSecret(): Uint8Array {
-  const secret = process.env.AUTH_SECRET ?? process.env.NEXTAUTH_SECRET;
-  if (!secret) {
-    throw new Error('AUTH_SECRET / NEXTAUTH_SECRET is not configured');
-  }
-  return new TextEncoder().encode(secret);
-}
-
 export async function POST(request: NextRequest): Promise<NextResponse> {
   // Validate Authorization header
   const authHeader = request.headers.get('authorization');
-  if (!authHeader || !authHeader.startsWith('Bearer ')) {
+  if (!validateApiKey(authHeader)) {
     return NextResponse.json(
       { error: 'Missing or invalid Authorization header' },
       { status: 401 }
     );
   }
 
-  const token = authHeader.slice(7);
-  let userId: string;
-
-  try {
-    const secret = getJwtSecret();
-    const { payload } = await jwtVerify(token, secret);
-    if (!payload.sub) {
-      return NextResponse.json(
-        { error: 'Invalid token: missing sub claim' },
-        { status: 401 }
-      );
-    }
-    userId = payload.sub;
-  } catch {
-    return NextResponse.json(
-      { error: 'Invalid or expired token' },
-      { status: 401 }
-    );
-  }
+  const userId = await getLocalUserId();
 
   // Parse and validate request body
   let body: unknown;

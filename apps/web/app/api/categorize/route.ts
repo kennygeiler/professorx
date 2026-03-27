@@ -1,14 +1,11 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { getEffectiveUserId } from '@/lib/auth/resolve-user';
+import { getLocalUserId } from '@/lib/auth/local-user';
 import { categorizeTweets } from '@/lib/services/categorization';
 
 export const maxDuration = 60;
 
 export async function POST(request: NextRequest) {
-  const userId = await getEffectiveUserId();
-  if (!userId) {
-    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-  }
+  const userId = await getLocalUserId();
 
   let tweetIds: string[] | undefined;
 

@@ -70,7 +70,7 @@ cp .env.example .env.local
 pnpm dev
 ```
 
-open http://localhost:3000. sign in with Twitter.
+open http://localhost:3000. no login needed — it's your local machine.
 
 ### 10 minutes: install the chrome extension
 
@@ -81,9 +81,11 @@ npx tsx build.ts
 
 1. open `chrome://extensions`, enable Developer Mode
 2. click "Load unpacked", select the `apps/extension` folder
-3. in the web app, go to Settings, click "Copy Extension Token"
-4. click the extension icon, enter your @handle and paste the token
-5. click "Sync Likes & Bookmarks"
+3. click the extension icon in the toolbar
+4. enter your Twitter @handle
+5. enter the `API_KEY` from your `.env.local` file
+6. set backend URL (defaults to `http://localhost:3000`)
+7. click "Sync Likes & Bookmarks"
 
 a tab opens. it scrolls. tweets flow into your library. you walk away.
 
@@ -285,7 +287,7 @@ TWITTER_CLIENT_SECRET=your-client-secret
 OPENAI_API_KEY=sk-your-key
 ```
 
-Twitter OAuth scopes needed: `users.read`, `tweet.read`, `like.read`, `bookmark.read`, `offline.access`
+no Twitter developer account or OAuth needed. the extension uses your existing browser login.
 
 ## deployment
 
@@ -293,9 +295,7 @@ Twitter OAuth scopes needed: `users.read`, `tweet.read`, `like.read`, `bookmark.
 
 1. push to github
 2. import in vercel
-3. set all environment variables
-4. set `AUTH_URL` to your vercel domain
-5. update Twitter OAuth callback URL
+3. set all environment variables from `.env.example`
 
 ### extension
 
@@ -312,18 +312,17 @@ redistribute the `apps/extension` folder. users load it as an unpacked extension
 
 | route | method | auth | description |
 |-------|--------|------|-------------|
-| `/api/tweets/ingest` | POST | JWT | ingest tweets from extension |
-| `/api/tweets` | GET | session | list tweets with pagination |
-| `/api/tweets/search` | GET | session | search + filter tweets |
-| `/api/tweets/ai-search` | POST | session | semantic AI search |
-| `/api/categories` | GET/POST | session | list or create categories |
-| `/api/categories/[id]` | PATCH/DELETE | session | update or delete |
-| `/api/categories/merge` | POST | session | merge two categories |
-| `/api/categorize` | POST | session | run AI categorization batch |
-| `/api/categorize/remaining` | GET | session | count uncategorized |
-| `/api/corrections` | POST | session | reclassify + AI learning |
-| `/api/settings` | GET/PATCH | session | user preferences |
-| `/api/auth/extension-token` | GET | session | generate 30-day JWT |
+| `/api/tweets/ingest` | POST | API key | ingest tweets from extension |
+| `/api/tweets` | GET | local | list tweets with pagination |
+| `/api/tweets/search` | GET | local | search + filter tweets |
+| `/api/tweets/ai-search` | POST | local | semantic AI search |
+| `/api/categories` | GET/POST | local | list or create categories |
+| `/api/categories/[id]` | PATCH/DELETE | local | update or delete |
+| `/api/categories/merge` | POST | local | merge two categories |
+| `/api/categorize` | POST | local | run AI categorization batch |
+| `/api/categorize/remaining` | GET | local | count uncategorized |
+| `/api/corrections` | POST | local | reclassify + AI learning |
+| `/api/settings` | GET/PATCH | local | user preferences |
 | `/api/selectors/heal` | POST | none | AI-powered CSS selector repair |
 
 ## database
@@ -346,21 +345,19 @@ everything runs on your own infrastructure with your own keys. nothing is shared
 | what | where to get it | cost |
 |------|----------------|------|
 | **supabase** | [supabase.com](https://supabase.com) | free tier works |
-| **twitter oauth** | [developer.x.com](https://developer.x.com) | free (login only, no API reads) |
 | **openai** | [platform.openai.com](https://platform.openai.com) | ~$0.01 per 100 tweets categorized (gpt-4o-mini) |
 | **vercel** (optional) | [vercel.com](https://vercel.com) | free tier works |
 
 steps:
 1. fork this repo
 2. create a supabase project, run migrations
-3. create a twitter developer app with OAuth 2.0
-4. get an openai API key
-5. copy `apps/web/.env.example` to `.env.local`, fill in your keys
-6. update `apps/extension/src/lib/auth.ts` with your backend URL
-7. `pnpm install && pnpm dev`
-8. build the extension: `cd apps/extension && npx tsx build.ts`
-9. load unpacked in chrome, connect with your token
-10. sync and categorize
+3. get an openai API key
+4. copy `apps/web/.env.example` to `.env.local`, fill in your keys
+5. generate an API_KEY: `openssl rand -hex 32`
+6. `pnpm install && pnpm dev`
+7. build the extension: `cd apps/extension && npx tsx build.ts`
+8. load unpacked in chrome, enter your @handle + API_KEY
+9. sync and categorize
 
 no data leaves your deployment. tweets are stored in your supabase. AI calls go to your openai key. the extension talks only to your backend.
 
