@@ -116,7 +116,6 @@ export async function categorizeTweets(
     (categories ?? []).map((c) => [c.name.toLowerCase(), c.id])
   );
 
-  result.errors.push(`[DEBUG] DB categories: ${categoryList.join(", ")}`);
 
   // Fetch AI memory
   const memory = await getAiMemory(userId);
@@ -165,8 +164,6 @@ export async function categorizeTweets(
         continue;
       }
 
-      // Log raw AI response for debugging
-      result.errors.push(`[DEBUG] AI raw (first 200): ${raw.slice(0, 200)}`);
 
       let assignments: AiAssignment[];
 
@@ -217,9 +214,6 @@ export async function categorizeTweets(
             ? [assignment.category]
             : [];
 
-        if (result.categorized === 0 && catNames.length === 0) {
-          result.errors.push(`[DEBUG] Empty catNames. Raw assignment: ${JSON.stringify(assignment).slice(0, 200)}`);
-        }
 
         let assigned = false;
         for (const catName of catNames) {
@@ -259,15 +253,12 @@ export async function categorizeTweets(
             });
 
           if (insertError) {
-            result.errors.push(
-              `[DEBUG] Insert failed: ${insertError.message} (tweet: ${assignment.tweet_id.slice(0,8)}, cat: ${catName})`
-            );
+            if (!insertError.message.includes('duplicate')) {
+              result.errors.push(`Failed to assign tweet: ${insertError.message}`);
+            }
             continue;
           }
           assigned = true;
-          if (result.categorized === 0) {
-            result.errors.push(`[DEBUG] First success: tweet ${assignment.tweet_id.slice(0,8)} → ${catName}`);
-          }
         }
 
         if (assigned) {

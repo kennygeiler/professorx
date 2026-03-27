@@ -29,7 +29,6 @@ export async function POST(request: NextRequest) {
       remaining: result.remaining,
       newCategories: result.newCategories,
       errors: result.errors,
-      _debug: { userId },
     });
   } catch (err) {
     console.error('Categorization failed:', err);
