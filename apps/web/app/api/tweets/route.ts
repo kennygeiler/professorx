@@ -1,10 +1,10 @@
 import { NextRequest, NextResponse } from "next/server";
-import { auth } from "@/lib/auth/config";
+import { getEffectiveUserId } from "@/lib/auth/resolve-user";
 import { createAdminClient } from "@/lib/supabase/admin";
 
 export async function GET(request: NextRequest) {
-  const session = await auth();
-  if (!session?.user?.id) {
+  const userId = await getEffectiveUserId();
+  if (!userId) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
@@ -18,12 +18,12 @@ export async function GET(request: NextRequest) {
   const { count: totalCount } = await supabase
     .from("tweets")
     .select("id", { count: "exact", head: true })
-    .eq("user_id", session.user.id);
+    .eq("user_id", userId);
 
   let query = supabase
     .from("tweets")
     .select("*")
-    .eq("user_id", session.user.id)
+    .eq("user_id", userId)
     .order("tweet_created_at", { ascending: false, nullsFirst: false })
     .limit(limit + 1);
 

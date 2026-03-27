@@ -1,15 +1,14 @@
 import { NextResponse } from 'next/server';
-import { auth } from '@/lib/auth/config';
+import { getEffectiveUserId } from '@/lib/auth/resolve-user';
 import { createAdminClient } from '@/lib/supabase/admin';
 
 export async function GET() {
-  const session = await auth();
-  if (!session?.user?.id) {
+  const userId = await getEffectiveUserId();
+  if (!userId) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
   }
 
   const supabase = createAdminClient();
-  const userId = session.user.id;
 
   const { count: totalTweets } = await supabase
     .from('tweets')

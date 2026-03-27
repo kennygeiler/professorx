@@ -1,10 +1,10 @@
 import { NextRequest, NextResponse } from "next/server";
-import { auth } from "@/lib/auth/config";
+import { getEffectiveUserId } from "@/lib/auth/resolve-user";
 import { createAdminClient } from "@/lib/supabase/admin";
 
 export async function GET() {
-  const session = await auth();
-  if (!session?.user?.id) {
+  const userId = await getEffectiveUserId();
+  if (!userId) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
@@ -13,7 +13,7 @@ export async function GET() {
   const { data: categories, error } = await supabase
     .from("categories")
     .select("id, name, color, tweet_count")
-    .eq("user_id", session.user.id)
+    .eq("user_id", userId)
     .order("tweet_count", { ascending: false });
 
   if (error) {
@@ -27,8 +27,8 @@ export async function GET() {
 }
 
 export async function POST(request: NextRequest) {
-  const session = await auth();
-  if (!session?.user?.id) {
+  const userId = await getEffectiveUserId();
+  if (!userId) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
@@ -51,7 +51,7 @@ export async function POST(request: NextRequest) {
   const { data: category, error } = await supabase
     .from("categories")
     .insert({
-      user_id: session.user.id,
+      user_id: userId,
       name: body.name.trim(),
       color: body.color ?? "#71717a",
     })

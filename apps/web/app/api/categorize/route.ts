@@ -1,12 +1,12 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { auth } from '@/lib/auth/config';
+import { getEffectiveUserId } from '@/lib/auth/resolve-user';
 import { categorizeTweets } from '@/lib/services/categorization';
 
 export const maxDuration = 60;
 
 export async function POST(request: NextRequest) {
-  const session = await auth();
-  if (!session?.user?.id) {
+  const userId = await getEffectiveUserId();
+  if (!userId) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
   }
 
@@ -22,7 +22,7 @@ export async function POST(request: NextRequest) {
   }
 
   try {
-    const result = await categorizeTweets(session.user.id, tweetIds);
+    const result = await categorizeTweets(userId, tweetIds);
 
     return NextResponse.json({
       categorized: result.categorized,

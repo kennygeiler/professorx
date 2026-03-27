@@ -1,6 +1,7 @@
 import { redirect } from "next/navigation";
 import { auth } from "@/lib/auth/config";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { resolveUserWithTweets } from "@/lib/auth/resolve-user";
 import { EmptyState } from "@/components/tweets/empty-state";
 import { LibraryView } from "@/components/library/library-view";
 import { Header } from "@/components/layout/header";
@@ -72,7 +73,10 @@ export default async function LibraryPage() {
   const session = await auth();
   if (!session?.user?.id) redirect("/login");
 
-  const { tweets, nextCursor } = await getInitialTweets(session.user.id);
+  const twitterId = (session as any).twitterId as string | undefined;
+  const userId = await resolveUserWithTweets(session.user.id, twitterId);
+
+  const { tweets, nextCursor } = await getInitialTweets(userId);
 
   if (tweets.length === 0) {
     return (

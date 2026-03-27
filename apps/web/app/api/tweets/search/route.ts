@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { auth } from "@/lib/auth/config";
+import { getEffectiveUserId } from "@/lib/auth/resolve-user";
 import { createAdminClient } from "@/lib/supabase/admin";
 
 function getDateFromTimeRange(timeRange: string): Date | null {
@@ -29,8 +29,8 @@ function getDateFromTimeRange(timeRange: string): Date | null {
 }
 
 export async function GET(request: NextRequest) {
-  const session = await auth();
-  if (!session?.user?.id) {
+  const userId = await getEffectiveUserId();
+  if (!userId) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
@@ -80,7 +80,7 @@ export async function GET(request: NextRequest) {
   let query = supabase
     .from("tweets")
     .select("*", { count: "exact" })
-    .eq("user_id", session.user.id)
+    .eq("user_id", userId)
     .order("tweet_created_at", { ascending: false, nullsFirst: false })
     .limit(limit + 1);
 
@@ -120,7 +120,7 @@ export async function GET(request: NextRequest) {
     const { data: allUserTweets } = await supabase
       .from("tweets")
       .select("id")
-      .eq("user_id", session.user.id)
+      .eq("user_id", userId)
       .limit(500);
     const allIds = (allUserTweets ?? []).map((t) => t.id);
     if (allIds.length > 0) {
