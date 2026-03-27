@@ -4,7 +4,7 @@
   "version": "0.2.0",
   "description": "Auto-sync your Twitter/X likes and bookmarks — no API needed",
   "permissions": ["storage", "scripting", "tabs"],
-  "host_permissions": ["https://x.com/*", "https://twitter.com/*"],
+  "host_permissions": ["https://x.com/*", "https://twitter.com/*", "https://likesscrapper.vercel.app/*", "http://localhost:3000/*"],
   "background": {
     "service_worker": "dist/background.js",
     "type": "module"
