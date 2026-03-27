@@ -8,7 +8,6 @@ import { CategoryChips } from "@/components/search/category-chips";
 import { TimeSlider } from "@/components/search/time-slider";
 import { TweetCard } from "@/components/tweets/tweet-card";
 import { TweetSkeleton } from "@/components/tweets/tweet-skeleton";
-import { ColumnView } from "@/components/library/column-view";
 import type { TweetWithCategories } from "@/app/page";
 
 type TimeRange = "1d" | "3d" | "1w" | "2w" | "1m" | "2m" | "3m" | "6m" | "1y" | "all";
@@ -30,7 +29,7 @@ export function LibraryView({ initialTweets, initialCursor }: LibraryViewProps) 
   const [category, setCategory] = useState<string | null>(null);
   const [timeRange, setTimeRange] = useState<TimeRange>("all");
   const [mediaType, setMediaType] = useState<string | null>(null);
-  const [viewMode, setViewMode] = useState<"feed" | "columns">("feed");
+  const [sourceFilter, setSourceFilter] = useState<"all" | "like" | "bookmark">("all");
   const [categories, setCategories] = useState<Category[]>([]);
 
   const [tweets, setTweets] = useState(initialTweets);
@@ -40,7 +39,7 @@ export function LibraryView({ initialTweets, initialCursor }: LibraryViewProps) 
   const [totalCount, setTotalCount] = useState<number | null>(null);
   const sentinelRef = useRef<HTMLDivElement>(null);
 
-  const hasFilters = debouncedQuery.length >= 3 || !!category || timeRange !== "all" || !!mediaType;
+  const hasFilters = debouncedQuery.length >= 3 || !!category || timeRange !== "all" || !!mediaType || sourceFilter !== "all";
 
   // Fetch categories, uncategorized count, and total tweet count on mount
   useEffect(() => {
@@ -74,6 +73,7 @@ export function LibraryView({ initialTweets, initialCursor }: LibraryViewProps) 
     if (category) params.set("category", category);
     if (timeRange !== "all") params.set("timeRange", timeRange);
     if (mediaType) params.set("mediaType", mediaType);
+      if (sourceFilter !== "all") params.set("sourceType", sourceFilter);
     params.set("limit", "40");
 
     fetch(`/api/tweets/search?${params.toString()}`)
@@ -90,7 +90,7 @@ export function LibraryView({ initialTweets, initialCursor }: LibraryViewProps) 
       });
 
     return () => { cancelled = true; };
-  }, [debouncedQuery, category, timeRange, mediaType, hasFilters, initialTweets, initialCursor]);
+  }, [debouncedQuery, category, timeRange, mediaType, sourceFilter, hasFilters, initialTweets, initialCursor]);
 
   // Infinite scroll
   const loadMore = useCallback(async () => {
@@ -102,6 +102,7 @@ export function LibraryView({ initialTweets, initialCursor }: LibraryViewProps) 
     if (category) params.set("category", category);
     if (timeRange !== "all") params.set("timeRange", timeRange);
     if (mediaType) params.set("mediaType", mediaType);
+      if (sourceFilter !== "all") params.set("sourceType", sourceFilter);
 
     const endpoint = hasFilters ? "/api/tweets/search" : "/api/tweets";
 
@@ -134,6 +135,7 @@ export function LibraryView({ initialTweets, initialCursor }: LibraryViewProps) 
     setCategory(null);
     setTimeRange("all");
     setMediaType(null);
+    setSourceFilter("all");
   };
 
   const [categorizing, setCategorizing] = useState(false);
@@ -141,8 +143,6 @@ export function LibraryView({ initialTweets, initialCursor }: LibraryViewProps) 
   const [uncategorizedRemaining, setUncategorizedRemaining] = useState<number | null>(null);
 
   const hasActiveFilters = query.length > 0 || !!category || timeRange !== "all";
-  const [filtersOpen, setFiltersOpen] = useState(false);
-  const activeFilterCount = (category ? 1 : 0) + (timeRange !== "all" ? 1 : 0);
   const [aiSearching, setAiSearching] = useState(false);
   const [showAiSearch, setShowAiSearch] = useState(false);
 
@@ -213,6 +213,7 @@ export function LibraryView({ initialTweets, initialCursor }: LibraryViewProps) 
       if (category) params.set("category", category);
       if (timeRange !== "all") params.set("timeRange", timeRange);
       if (mediaType) params.set("mediaType", mediaType);
+      if (sourceFilter !== "all") params.set("sourceType", sourceFilter);
       const endpoint = hasFilters ? "/api/tweets/search" : "/api/tweets";
       const tweetsRes = await fetch(`${endpoint}?${params.toString()}`);
       if (tweetsRes.ok) {
@@ -279,31 +280,14 @@ export function LibraryView({ initialTweets, initialCursor }: LibraryViewProps) 
   };
 
   return (
-    <div className={viewMode === "feed" ? "mx-auto max-w-2xl" : ""}>
+    <div className="mx-auto max-w-2xl">
       {/* Filter bar */}
-      <div className={`sticky top-0 z-10 bg-zinc-950/95 pb-4 pt-1 sm:pb-6 sm:pt-2 backdrop-blur ${viewMode === "feed" ? "" : "mx-auto max-w-2xl"}`}>
+      <div className="sticky top-0 z-10 bg-zinc-950/95 pb-4 pt-1 sm:pb-6 sm:pt-2 backdrop-blur">
         <div className="flex flex-col gap-2 sm:gap-3">
           <div className="flex items-center gap-2">
             <div className="flex-1">
               <SearchBar value={query} onChange={setQuery} />
             </div>
-            {/* View toggle — hidden on mobile */}
-            <button
-              onClick={() => setViewMode(viewMode === "feed" ? "columns" : "feed")}
-              className="hidden shrink-0 rounded-lg p-2 text-zinc-400 transition-colors hover:bg-zinc-800 hover:text-zinc-100 sm:block"
-              title={viewMode === "feed" ? "Column view" : "Feed view"}
-            >
-              {viewMode === "feed" ? (
-                <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M9 4h6M9 8h6M9 12h6M4 4v16M20 4v16" />
-                </svg>
-              ) : (
-                <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M4 6h16M4 12h16M4 18h16" />
-                </svg>
-              )}
-            </button>
-
             <button
               onClick={softRefresh}
               disabled={refreshing}
@@ -330,35 +314,54 @@ export function LibraryView({ initialTweets, initialCursor }: LibraryViewProps) 
             </p>
           )}
 
-          {/* Filter toggle for mobile */}
-          <div className="flex items-center gap-2 sm:hidden">
-            <button
-              onClick={() => setFiltersOpen(!filtersOpen)}
-              className={`inline-flex items-center gap-1.5 rounded-lg px-2.5 py-1.5 text-xs font-medium transition-colors ${
-                filtersOpen || activeFilterCount > 0
-                  ? "bg-zinc-800 text-zinc-200"
-                  : "text-zinc-500 hover:text-zinc-300"
-              }`}
-            >
-              <svg className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                <path strokeLinecap="round" strokeLinejoin="round" d="M3 4a1 1 0 011-1h16a1 1 0 011 1v2.586a1 1 0 01-.293.707l-6.414 6.414a1 1 0 00-.293.707V17l-4 4v-6.586a1 1 0 00-.293-.707L3.293 7.293A1 1 0 013 6.586V4z" />
-              </svg>
-              Filters
-              {activeFilterCount > 0 && (
-                <span className="rounded-full bg-zinc-700 px-1.5 text-[10px]">
-                  {activeFilterCount}
-                </span>
-              )}
-            </button>
+          {/* Source + media type filters */}
+          <div className="flex flex-wrap gap-1.5">
+            {[
+              { value: "all" as const, label: "All" },
+              { value: "like" as const, label: "Likes" },
+              { value: "bookmark" as const, label: "Bookmarks" },
+            ].map((opt) => (
+              <button
+                key={opt.value}
+                onClick={() => setSourceFilter(opt.value)}
+                className={`shrink-0 rounded-full px-2.5 py-1 text-xs font-medium transition-colors ${
+                  sourceFilter === opt.value
+                    ? "bg-[#1d9bf0]/15 text-[#1d9bf0] border border-[#1d9bf0]/30"
+                    : "text-zinc-500 hover:text-zinc-300"
+                }`}
+              >
+                {opt.label}
+              </button>
+            ))}
+            <span className="w-px bg-zinc-800" />
+            {[
+              { value: null, label: "All types" },
+              { value: "photo", label: "Photos" },
+              { value: "video", label: "Videos" },
+              { value: "quote", label: "Quotes" },
+              { value: "text", label: "Text only" },
+            ].map((opt) => (
+              <button
+                key={opt.value ?? "all"}
+                onClick={() => setMediaType(opt.value)}
+                className={`shrink-0 rounded-full px-2.5 py-1 text-xs font-medium transition-colors ${
+                  mediaType === opt.value
+                    ? "bg-[#1d9bf0]/15 text-[#1d9bf0] border border-[#1d9bf0]/30"
+                    : "text-zinc-500 hover:text-zinc-300"
+                }`}
+              >
+                {opt.label}
+              </button>
+            ))}
             {hasActiveFilters && (
-              <button onClick={clearAll} className="text-xs text-zinc-500 hover:text-zinc-300">
-                Clear
+              <button onClick={clearAll} className="shrink-0 rounded-full px-2.5 py-1 text-xs text-zinc-500 hover:text-zinc-300">
+                Clear all
               </button>
             )}
           </div>
 
-          {/* Filter panel — always visible on desktop, collapsible on mobile */}
-          <div className={`flex flex-col gap-3 ${filtersOpen ? "" : "hidden sm:flex"}`}>
+          {/* All filters always visible */}
+          <div className="flex flex-col gap-3">
             {categories.length > 0 && (
               <div className="flex items-start gap-2">
                 <div className="flex-1">
@@ -381,40 +384,7 @@ export function LibraryView({ initialTweets, initialCursor }: LibraryViewProps) 
               </div>
             )}
 
-            {/* Media type filters */}
-            <div className="flex gap-1.5 overflow-x-auto scrollbar-none">
-              {[
-                { value: null, label: "All types" },
-                { value: "photo", label: "Photos" },
-                { value: "video", label: "Videos" },
-                { value: "quote", label: "Quotes" },
-                { value: "text", label: "Text only" },
-              ].map((opt) => (
-                <button
-                  key={opt.value ?? "all"}
-                  onClick={() => setMediaType(opt.value)}
-                  className={`shrink-0 rounded-full px-2.5 py-1 text-xs font-medium transition-colors ${
-                    mediaType === opt.value
-                      ? "bg-[#1d9bf0]/15 text-[#1d9bf0] border border-[#1d9bf0]/30"
-                      : "text-zinc-500 hover:text-zinc-300"
-                  }`}
-                >
-                  {opt.label}
-                </button>
-              ))}
-            </div>
-
             <TimeSlider selected={timeRange} onSelect={setTimeRange} />
-
-            {hasActiveFilters && (
-              <button
-                type="button"
-                onClick={clearAll}
-                className="hidden self-start text-xs font-medium text-zinc-500 transition-colors hover:text-zinc-300 sm:block"
-              >
-                Clear all
-              </button>
-            )}
           </div>
 
           {(uncategorizedRemaining === null || uncategorizedRemaining > 0) && (
@@ -445,10 +415,8 @@ export function LibraryView({ initialTweets, initialCursor }: LibraryViewProps) 
         </div>
       </div>
 
-      {/* Column view */}
-      {viewMode === "columns" ? (
-        <ColumnView categories={categories} onCategoryChanged={handleCategoryChanged} />
-      ) : filterLoading ? (
+      {/* Tweet list */}
+      {filterLoading ? (
         <div className="flex flex-col gap-2 sm:gap-3">
           <TweetSkeleton />
           <TweetSkeleton />

@@ -41,6 +41,7 @@ export async function GET(request: NextRequest) {
   const cursor = searchParams.get("cursor");
   const tweetIdsParam = searchParams.get("tweetIds");
   const mediaTypeFilter = searchParams.get("mediaType");
+  const sourceTypeFilter = searchParams.get("sourceType");
   const limit = Math.min(
     parseInt(searchParams.get("limit") ?? "20", 10),
     50
@@ -116,6 +117,11 @@ export async function GET(request: NextRequest) {
     query = query.eq("tweet_type", "quote");
   } else if (mediaTypeFilter === "text") {
     query = query.filter("media", "eq", "[]");
+  }
+
+  // Source type filter (like/bookmark)
+  if (sourceTypeFilter === "like" || sourceTypeFilter === "bookmark") {
+    query = query.eq("source_type", sourceTypeFilter);
   }
 
   // Cursor pagination

@@ -82,7 +82,7 @@ export default async function LibraryPage() {
     <div className="flex min-h-screen flex-col bg-zinc-950 text-zinc-100">
       <Header />
       <main className="flex-1">
-        <div className="px-3 py-3 sm:px-4 sm:py-6">
+        <div className="mx-auto max-w-2xl px-3 py-3 sm:px-4 sm:py-6">
           <LibraryView initialTweets={tweets} initialCursor={nextCursor} />
         </div>
       </main>
