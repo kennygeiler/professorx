@@ -263,16 +263,26 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     (async () => {
       const token = await getToken();
       const backendUrl = await getBackendUrl();
+      const url = `${backendUrl}/api/tweets/ingest`;
       try {
-        const res = await fetch(`${backendUrl}/api/tweets/ingest`, {
+        const controller = new AbortController();
+        const timeout = setTimeout(() => controller.abort(), 5000);
+        const res = await fetch(url, {
           method: "POST",
           headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
           body: JSON.stringify({ tweets: [{ twitter_tweet_id: "test123", author_handle: "test", author_display_name: "Test", text_content: "Test tweet", source_type: "like" }] }),
+          signal: controller.signal,
         });
+        clearTimeout(timeout);
         const body = await res.text();
-        sendResponse({ status: res.status, body });
+        sendResponse({ status: res.status, body, url });
       } catch (err) {
-        sendResponse({ error: String(err) });
+        const msg = String(err);
+        if (msg.includes("abort")) {
+          sendResponse({ error: `Timeout after 5s — is ${url} reachable?` });
+        } else {
+          sendResponse({ error: `${msg} (URL: ${url})` });
+        }
       }
     })();
     return true;

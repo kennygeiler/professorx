@@ -103,7 +103,7 @@ document.getElementById("connect-btn")!.addEventListener("click", async () => {
 
   await setTwitterHandle(handle);
   await setToken(token);
-  if (backendUrl) await setBackendUrl(backendUrl);
+  await setBackendUrl(backendUrl || "http://localhost:3000");
   showConnected();
 
   const label = document.getElementById("connected-label");
@@ -138,8 +138,9 @@ document.getElementById("test-btn")!.addEventListener("click", () => {
     }
     if (response?.error) {
       statusEl.textContent = `Failed: ${response.error}`;
+      statusEl.className = "status error";
     } else {
-      statusEl.textContent = `Backend: ${response?.status} — ${response?.body?.slice(0, 100)}`;
+      statusEl.textContent = `${response?.status === 200 ? "OK" : response?.status} → ${response?.url}`;
     }
   });
 });
