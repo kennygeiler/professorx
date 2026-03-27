@@ -17,7 +17,7 @@ interface ParsedTweet {
 }
 
 const MAX_BATCH_SIZE = 50;
-const FLUSH_INTERVAL_MS = 10_000;
+const FLUSH_INTERVAL_MS = 3_000;
 const MAX_RETRIES = 3;
 
 interface BatchStatus {

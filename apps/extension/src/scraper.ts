@@ -151,8 +151,8 @@ function extractAllTweets(): ScrapedTweet[] {
 
 async function autoScroll(): Promise<void> {
   let noNewTweetsCount = 0;
-  const maxNoNew = 8; // More patience
-  const scrollDelay = 2000; // Slower scroll to let DOM render
+  const maxNoNew = 6;
+  const scrollDelay = 600; // Fast scroll — Twitter loads quickly
 
   const sendMsg = (type: string, data: Record<string, unknown> = {}) => {
     try {
@@ -166,7 +166,7 @@ async function autoScroll(): Promise<void> {
   sendMsg("SCRAPE_STATUS", { message: "Waiting for page to load...", count: 0 });
 
   // Wait for initial content
-  await new Promise((r) => setTimeout(r, 4000));
+  await new Promise((r) => setTimeout(r, 2000));
 
   console.log("[Scraper] Starting auto-scroll");
 
