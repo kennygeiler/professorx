@@ -36,5 +36,6 @@ export async function GET() {
 
   return NextResponse.json({
     remaining: Math.max(0, (totalTweets ?? 0) - categorizedCount),
+    _debug: { userId, totalTweets, categorizedCount },
   });
 }

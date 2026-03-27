@@ -249,10 +249,12 @@ export function LibraryView({ initialTweets, initialCursor }: LibraryViewProps) 
         totalCategorized += data.categorized;
         setUncategorizedRemaining(data.remaining ?? 0);
 
-        if (data.newCategories?.length > 0) {
+        if (data.errors?.length > 0) {
+          setCatProgress(`Errors: ${data.errors.slice(0, 3).join("; ")} | User: ${data._debug?.userId}`);
+        } else if (data.newCategories?.length > 0) {
           setCatProgress(`Created categories: ${data.newCategories.join(", ")}. Categorized ${totalCategorized} tweets...`);
         } else {
-          setCatProgress(`Categorized ${totalCategorized} tweets...`);
+          setCatProgress(`Categorized ${totalCategorized} tweets... (remaining: ${data.remaining})`);
         }
 
         // If nothing was categorized this round, we're done
