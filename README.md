@@ -40,17 +40,43 @@ readXlater solves both problems. a chrome extension scrolls your Twitter likes p
 
 ## how it works
 
+```
+┌─────────────────────────────────────────────────────────────────┐
+│                        your browser                             │
+│                                                                 │
+│  ┌──────────────┐    ┌──────────────┐    ┌──────────────────┐  │
+│  │   extension   │───▶│  x.com/likes  │───▶│  extract tweets  │  │
+│  │  click sync   │    │  auto-scroll  │    │  from the DOM    │  │
+│  └──────────────┘    └──────────────┘    └────────┬─────────┘  │
+│                                                    │            │
+└────────────────────────────────────────────────────┼────────────┘
+                                                     │ POST /api/ingest
+                                                     ▼
+                                          ┌──────────────────┐
+                                          │   your backend    │
+                                          │  (localhost:3000) │
+                                          └────────┬─────────┘
+                                                   │
+                            ┌──────────────────────┼──────────────────────┐
+                            │                      │                      │
+                            ▼                      ▼                      ▼
+                    ┌──────────────┐    ┌──────────────┐    ┌──────────────┐
+                    │   supabase   │    │   GPT-4o-mini  │    │    search    │
+                    │   (store)    │    │ (categorize)   │    │  (find)      │
+                    └──────────────┘    └──────────────┘    └──────────────┘
+```
+
 three pieces. the extension collects tweets. the backend stores and categorizes them. the frontend lets you search and browse.
 
 | layer | what it does | how |
 |-------|-------------|-----|
-| **chrome extension** | scrolls your Twitter likes/bookmarks page, extracts tweets from the DOM, sends to backend | manifest v3, content script injection, auto-scroll loop |
-| **backend** | stores tweets, runs AI categorization, handles search | next.js 15 API routes, supabase (postgres), openai gpt-4o-mini |
-| **frontend** | search, filter, browse your organized tweet library | next.js app router, tailwind, dark mode, mobile-responsive |
+| **chrome extension** | scrolls your likes/bookmarks, extracts tweets from DOM, sends to backend | manifest v3 content script, auto-scroll, zero API |
+| **backend** | stores tweets, runs AI categorization, handles search | next.js 15, supabase (postgres), GPT-4o-mini |
+| **frontend** | search, filter, browse your organized tweet library | dark mode, mobile-responsive, twitter blue |
 
-the extension opens `x.com/{yourhandle}/likes` in a foreground tab. it scrolls to the bottom repeatedly, extracting tweet data from `article[data-testid="tweet"]` elements as they render. batches of 50 tweets get POSTed to the backend with JWT auth. when no new tweets appear after several scrolls, it stops and closes the tab.
+the extension opens `x.com/{yourhandle}/likes` in a foreground tab. it scrolls to the bottom repeatedly, extracting tweet data from `article[data-testid="tweet"]` elements as they render. batches of 50 tweets get POSTed to your local backend. when no new tweets appear after several scrolls, it stops and redirects you to your library.
 
-this means you're reading the same DOM you see when you manually scroll Twitter. no API. no rate limits. zero cost.
+**no Twitter API. no rate limits. no cost. the extension reads the same page you see in your browser.**
 
 ## quick start
 
@@ -222,38 +248,58 @@ when you tap a category badge on a tweet and reclassify it, the system:
 
 the result: the more you use it, the better it gets. correction on day 1 prevents the same error on day 30. the system compounds.
 
+### settings
+
+![settings](assets/screenshots/settings.png)
+*data source toggles, AI behavior, API key for extension, category management, about section.*
+
+- **data sources** — toggle likes and bookmarks sync independently
+- **AI behavior** — skip the "why?" prompt when reclassifying (for speed)
+- **chrome extension** — reveals your API key with eye toggle + copy button. paste into the extension popup.
+- **categories** — link to the full category manager
+- **about** — links to the maker
+
+### category management
+
+![categories](assets/screenshots/categories.png)
+*53 categories, 1,559 tweets categorized. distribution bar shows the breakdown. add, edit, delete, or merge.*
+
+- **distribution bar** — color-coded visualization of tweet spread across categories
+- **add category** — name + color picker (18 colors), live preview chip
+- **merge categories** — pick source → target, preview combined count, source gets deleted
+- **delete** — inline confirmation, removes category and all assignments
+- **edit** — inline form with name + color
+- **percentage** — each category shows tweet count and % of total
+
 ### tweet cards
 
-- Twitter-native card design with avatars, author info, metrics
-- Twitter blue left border accent
-- quote tweet embeds (nested card)
+- twitter-native card design with avatars, author info, metrics
+- twitter blue left border accent
+- quote tweet embeds (nested card with author + text + media)
 - link preview chips for URLs
-- video/GIF thumbnails with play button (links to original tweet for playback)
+- video/GIF thumbnails with play button (links to original tweet)
 - bookmark indicator for saved tweets
 - reply context label
-- category badges (tap to reclassify)
+- category badges (tap to reclassify into 1-2 categories)
 - text truncation at 6 lines
 
 ## features
 
 | feature | description |
 |---------|-------------|
-| extension sync | auto-scroll DOM scraping, zero API cost |
-| AI categorization | GPT-4o-mini, 1-2 categories per tweet, auto-create |
-| full-text search | PostgreSQL FTS on text + author |
-| AI search | semantic search via GPT-4o-mini |
-| reclassify | tap badge, pick 1-2 categories, AI learns |
-| category management | create, edit, delete, merge, color picker |
-| fibonacci slider | non-linear time navigation |
-| multi-category | tweets can belong to up to 2 categories |
-| quote embeds | quoted tweets render as nested cards |
-| link previews | URL chips below tweet text |
-| video/GIF | inline playback with controls |
-| dark mode | zinc + Twitter blue color scheme |
-| mobile-responsive | collapsible filters, compact cards |
-| settings persistence | sync preferences saved to DB |
-| error handling | expired tokens, rate limits, clear messages |
-| stable user ID | works across multiple login sessions |
+| **extension sync** | auto-scroll DOM scraping, zero API cost |
+| **AI categorization** | GPT-4o-mini, 1-2 categories per tweet, auto-creates new ones |
+| **AI learning** | corrections + rules feed back into prompts, compounds over time |
+| **full-text search** | PostgreSQL FTS on text + author names |
+| **AI semantic search** | "find tweets about movies" — searches by meaning |
+| **reclassify** | tap badge, pick 1-2 categories, AI learns why |
+| **category management** | create, edit, delete, merge with distribution bar |
+| **fibonacci slider** | non-linear time navigation |
+| **quote embeds** | quoted tweets with author + text + media |
+| **self-healing selectors** | AI auto-fixes broken CSS selectors |
+| **dark mode** | zinc + twitter blue color scheme |
+| **mobile responsive** | collapsible filters, compact cards |
+| **no accounts** | single-user, API key auth, runs on your machine |
 
 ## project structure
 
@@ -267,8 +313,7 @@ apps/
         categorize/             # AI categorization + remaining count
         corrections/            # reclassification + AI learning
         settings/               # user preferences
-        auth/                   # extension token generation
-      login/                    # sign in page
+        config/                 # API key endpoint
       settings/                 # settings + category management
       page.tsx                  # main library page
     components/
@@ -278,18 +323,18 @@ apps/
       categories/               # category manager, form, merge dialog
       layout/                   # header, footer, about section
     lib/
-      auth/                     # NextAuth config, stable user ID resolution
+      auth/                     # local user, API key validation
       services/                 # categorization, AI memory, tweet ingestion
-      twitter/                  # Twitter API client (legacy, not used by extension)
       supabase/                 # admin client, types
   extension/                    # chrome extension (manifest v3)
     src/
-      scraper.ts                # DOM extraction + auto-scroll
-      background.ts             # tab management, batch orchestration
-      popup/                    # popup UI (sync buttons, progress, token input)
+      scraper.ts                # DOM extraction + auto-scroll + backend send
+      selectors.ts              # configurable CSS selectors
+      inspector.ts              # selector health checker
+      background.ts             # daily health check alarm
+      popup/                    # popup UI (sync buttons, token input)
       lib/
-        auth.ts                 # token + handle storage
-        batch-sender.ts         # HTTP batching with retry
+        auth.ts                 # API key + handle storage
     manifest.json
 packages/
   shared/                       # shared zod schemas + constants
