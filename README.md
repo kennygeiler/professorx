@@ -140,7 +140,7 @@ cp .env.example .env.local
 pnpm dev
 ```
 
-open http://localhost:3000. no login needed — it's your local machine.
+open http://localhost:3100. no login needed — it's your local machine.
 
 ### 10 minutes: install the chrome extension
 
@@ -154,7 +154,7 @@ npx tsx build.ts
 3. click the extension icon in the toolbar
 4. enter your Twitter @handle
 5. enter the `API_KEY` from your `.env.local` file
-6. set backend URL (defaults to `http://localhost:3000`)
+6. set backend URL (defaults to `http://localhost:3100`)
 7. click "Sync Likes & Bookmarks"
 
 a tab opens. it scrolls. tweets flow into your library. you walk away.
@@ -423,7 +423,7 @@ readXlater is designed to run locally. but you can deploy it if you want:
 
 ```bash
 pnpm install
-cd apps/web && pnpm dev     # backend at localhost:3000
+cd apps/web && pnpm dev     # backend at localhost:3100
 cd apps/extension && npx tsx build.ts  # build extension
 ```
 

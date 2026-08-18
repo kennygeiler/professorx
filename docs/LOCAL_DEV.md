@@ -12,8 +12,9 @@ local Supabase stack in Docker — no hosted Supabase project, no signup.
 | Supabase Studio | http://127.0.0.1:54323 |
 | Postgres | postgresql://postgres:postgres@127.0.0.1:54322/postgres |
 
-Port 3100 instead of the README's 3000 because 3000 was already taken on this
-machine. If 3000 is free, use it and skip the backend-URL edit in step 4.
+The project's default port is 3100, not 3000: port 3000 is held by the
+long-running DeployAI container on this machine. `apps/web/package.json` and the
+extension's `src/lib/config.ts` both carry 3100, so the two agree by default.
 
 ## Setup
 
@@ -26,7 +27,7 @@ cd ~/professorx && supabase start
 2. Install dependencies and start the web app:
 
 ```bash
-cd ~/professorx && pnpm install && pnpm --filter web exec next dev --port 3100
+cd ~/professorx && pnpm install && pnpm dev
 ```
 
 `apps/web/.env.local` already holds the local Supabase keys, a generated
@@ -43,10 +44,16 @@ cd ~/professorx/apps/extension && node build.ts
 
    - Twitter handle: your `@handle`
    - API key: the `API_KEY` value from `apps/web/.env.local`
-   - Backend URL: `http://localhost:3100` (the field is prefilled with 3000)
+   - Backend URL: `http://localhost:3100` (already prefilled)
 
    Then click **Sync Likes**. It opens your likes page, scrolls it, and posts
    batches to `/api/tweets/ingest`. Watch the overlay in the bottom-right.
+
+If the extension was connected before the 3100 change, click **Disconnect** and
+reconnect — the old URL is stored in `chrome.storage` and overrides the default.
+A wrong backend URL fails silently in a confusing way: the scraper POSTs to
+whatever is on that port and then redirects you there, so you land on an
+unrelated app and no tweets arrive.
 
 ## AI features
 

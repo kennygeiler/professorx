@@ -3,14 +3,13 @@
  * Manages the auth token and backend URL via chrome.storage.local.
  */
 
+import { DEFAULT_BACKEND_URL } from './config';
+
 const STORAGE_KEYS = {
   AUTH_TOKEN: 'readxlater_auth_token',
   BACKEND_URL: 'readxlater_backend_url',
   TWITTER_HANDLE: 'readxlater_twitter_handle',
 } as const;
-
-// Change this to your deployed URL, or leave as localhost for local dev
-const DEFAULT_BACKEND_URL = 'http://localhost:3000';
 
 /**
  * Get the stored auth token.

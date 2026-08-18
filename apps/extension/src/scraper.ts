@@ -4,6 +4,8 @@
  * Extracts tweets, sends directly to backend, shows overlay.
  */
 
+import { DEFAULT_BACKEND_URL } from "./lib/config";
+
 interface ScrapedTweet {
   twitter_tweet_id: string;
   author_handle: string;
@@ -34,7 +36,7 @@ interface ScrapedTweet {
   // Get auth config
   const config = await chrome.storage.local.get(["readxlater_auth_token", "readxlater_backend_url"]);
   const token = config.readxlater_auth_token;
-  const backendUrl = config.readxlater_backend_url || "http://localhost:3000";
+  const backendUrl = config.readxlater_backend_url || DEFAULT_BACKEND_URL;
 
   if (!token) {
     console.log("[readXlater] No API key set");

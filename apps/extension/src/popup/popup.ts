@@ -3,6 +3,7 @@
  */
 
 import { getToken, clearToken, setToken, getTwitterHandle, setTwitterHandle, setBackendUrl, getBackendUrl } from "../lib/auth";
+import { DEFAULT_BACKEND_URL } from "../lib/config";
 
 const notConnectedEl = document.getElementById("not-connected")!;
 const connectedEl = document.getElementById("connected")!;
@@ -64,7 +65,7 @@ document.getElementById("connect-btn")!.addEventListener("click", async () => {
 
   await setTwitterHandle(handle);
   await setToken(token);
-  await setBackendUrl(backendUrl || "http://localhost:3000");
+  await setBackendUrl(backendUrl || DEFAULT_BACKEND_URL);
   showConnected();
 
   const label = document.getElementById("connected-label");
@@ -109,7 +110,7 @@ document.getElementById("test-btn")!.addEventListener("click", async () => {
   setStatus("Testing...");
   const result = await chrome.storage.local.get(["readxlater_auth_token", "readxlater_backend_url"]);
   const token = result.readxlater_auth_token ?? "";
-  const backendUrl = result.readxlater_backend_url ?? "http://localhost:3000";
+  const backendUrl = result.readxlater_backend_url ?? DEFAULT_BACKEND_URL;
   const url = `${backendUrl}/api/tweets/ingest`;
 
   try {
