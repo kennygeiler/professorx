@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import OpenAI from "openai";
+import Anthropic from "@anthropic-ai/sdk";
 
 export const maxDuration = 30;
 
@@ -22,7 +22,14 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: "Missing domSnapshot or currentSelectors" }, { status: 400 });
   }
 
-  const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
+  if (!process.env.ANTHROPIC_API_KEY) {
+    return NextResponse.json(
+      { error: "Selector healing needs ANTHROPIC_API_KEY in apps/web/.env.local." },
+      { status: 503 }
+    );
+  }
+
+  const anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
 
   const brokenList = Object.entries(brokenSelectors)
     .map(([name, selector]) => `- ${name}: ${selector}`)
@@ -33,24 +40,20 @@ export async function POST(request: NextRequest) {
     .join("\n");
 
   try {
-    const completion = await openai.chat.completions.create({
-      model: "gpt-4o-mini",
+    const message = await anthropic.messages.create({
+      model: "claude-opus-5",
+      max_tokens: 4096,
+      system:
+        "You are a CSS selector expert. Given a DOM snapshot from Twitter/X and a list of broken CSS selectors, generate updated selectors that match the current DOM structure. Respond ONLY with valid JSON — an object where keys are selector names and values are the new CSS selector strings. No explanation.",
       messages: [
-        {
-          role: "system",
-          content:
-            "You are a CSS selector expert. Given a DOM snapshot from Twitter/X and a list of broken CSS selectors, generate updated selectors that match the current DOM structure. Respond ONLY with valid JSON — an object where keys are selector names and values are the new CSS selector strings. No explanation.",
-        },
         {
           role: "user",
           content: `The following CSS selectors no longer match any elements on Twitter/X:\n\n${brokenList}\n\nAll current selectors:\n${currentList}\n\nHere is a sample of the current Twitter DOM structure (first article element):\n\n${domSnapshot.slice(0, 4000)}\n\nGenerate updated CSS selectors for ONLY the broken ones. Return a JSON object like: {"tweetText": "div[data-testid=\\"tweetText\\"]"}`,
         },
       ],
-      temperature: 0.1,
-      max_tokens: 512,
     });
 
-    const raw = completion.choices[0]?.message?.content?.trim();
+    const raw = message.content.find((b) => b.type === "text")?.text?.trim();
     if (!raw) {
       return NextResponse.json({ error: "Empty AI response" }, { status: 500 });
     }

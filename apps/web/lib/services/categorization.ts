@@ -1,4 +1,4 @@
-import OpenAI from 'openai';
+import Anthropic from '@anthropic-ai/sdk';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { buildCategorizationPrompt } from './prompt-builder';
 import { getAiMemory } from './ai-memory';
@@ -134,11 +134,16 @@ export async function categorizeTweets(
     );
   }
 
-  const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
-  const hasCategories = categoryList.length > 0;
+  const anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
 
   for (const batch of batches) {
     try {
+      // Recomputed per batch: earlier batches add to categoryList, and once it
+      // is non-empty the prompt asks for assignments instead of suggestions.
+      // Hoisting this out of the loop made every batch after the first parse
+      // an assignment array as a suggestion object.
+      const hasCategories = categoryList.length > 0;
+
       const prompt = buildCategorizationPrompt(
         categoryList,
         memory.corrections,
@@ -146,21 +151,18 @@ export async function categorizeTweets(
         batch
       );
 
-      const completion = await openai.chat.completions.create({
-        model: 'gpt-4o-mini',
-        messages: [
-          {
-            role: 'system',
-            content:
-              'You are a tweet categorization engine. Respond only with valid JSON, no markdown fences or extra text.',
-          },
-          { role: 'user', content: prompt },
-        ],
-        temperature: 0.3,
-        max_tokens: 1024,
+      const message = await anthropic.messages.create({
+        model: 'claude-opus-5',
+        max_tokens: 4096,
+        // Assigning known categories is scoped work; low effort keeps a full
+        // library affordable to categorize.
+        output_config: { effort: 'low' },
+        system:
+          'You are a tweet categorization engine. Respond only with valid JSON, no markdown fences or extra text.',
+        messages: [{ role: 'user', content: prompt }],
       });
 
-      const raw = completion.choices[0]?.message?.content?.trim();
+      const raw = message.content.find((b) => b.type === 'text')?.text?.trim();
       if (!raw) {
         result.errors.push('Empty response from AI');
         continue;

@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getLocalUserId } from "@/lib/auth/local-user";
 import { createAdminClient } from "@/lib/supabase/admin";
-import OpenAI from "openai";
+import Anthropic from "@anthropic-ai/sdk";
 
 export const maxDuration = 60;
 
@@ -22,14 +22,14 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: "Query too short" }, { status: 400 });
   }
 
-  // Without a key every OpenAI call below fails and the catch swallows it, so
+  // Without a key every model call below fails and the catch swallows it, so
   // the response would be an empty match list — indistinguishable from "your
   // library has nothing about this". Say what is actually wrong instead.
-  if (!process.env.OPENAI_API_KEY) {
+  if (!process.env.ANTHROPIC_API_KEY) {
     return NextResponse.json(
       {
         error:
-          "AI search needs OPENAI_API_KEY in apps/web/.env.local. Keyword search works without it.",
+          "AI search needs ANTHROPIC_API_KEY in apps/web/.env.local. Keyword search works without it.",
       },
       { status: 503 }
     );
@@ -49,7 +49,7 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ tweetIds: [] });
   }
 
-  const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
+  const anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
   const matchingIds: string[] = [];
 
   // Process in batches
@@ -60,28 +60,44 @@ export async function POST(request: NextRequest) {
       .join("\n");
 
     try {
-      const completion = await openai.chat.completions.create({
-        model: "gpt-4o-mini",
-        messages: [
-          {
-            role: "system",
-            content:
-              "You are a tweet search engine. Given a user query and a list of tweets, return ONLY the indices of tweets that match the query. Return a JSON array of numbers, e.g. [0, 3, 7]. If none match, return []. No explanation.",
+      const message = await anthropic.messages.create({
+        model: "claude-opus-5",
+        max_tokens: 4096,
+        // Matching tweets to a query is a scoped classification task, so the
+        // batches run at low effort to keep search responsive.
+        output_config: {
+          effort: "low",
+          format: {
+            type: "json_schema",
+            schema: {
+              type: "object",
+              properties: {
+                indices: {
+                  type: "array",
+                  items: { type: "integer" },
+                  description: "Indices of tweets matching the query.",
+                },
+              },
+              required: ["indices"],
+              additionalProperties: false,
+            },
           },
+        },
+        system:
+          "You are a tweet search engine. Given a user query and a numbered list of tweets, return the indices of the tweets that match the query. Return an empty array if none match.",
+        messages: [
           {
             role: "user",
             content: `Query: "${query}"\n\nTweets:\n${tweetList}`,
           },
         ],
-        temperature: 0.1,
-        max_tokens: 256,
       });
 
-      const raw = completion.choices[0]?.message?.content?.trim();
+      const raw = message.content.find((b) => b.type === "text")?.text;
       if (raw) {
         try {
-          const indices = JSON.parse(raw) as number[];
-          for (const idx of indices) {
+          const { indices } = JSON.parse(raw) as { indices: number[] };
+          for (const idx of indices ?? []) {
             if (idx >= 0 && idx < batch.length) {
               matchingIds.push(batch[idx].id);
             }
@@ -90,8 +106,9 @@ export async function POST(request: NextRequest) {
           // Skip unparseable response
         }
       }
-    } catch {
+    } catch (err) {
       // Skip batch on error, continue with next
+      console.error("AI search batch failed:", err);
     }
   }
 

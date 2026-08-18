@@ -18,11 +18,11 @@ export async function POST(request: NextRequest) {
     // Empty body is fine — categorize all uncategorized tweets
   }
 
-  if (!process.env.OPENAI_API_KEY) {
+  if (!process.env.ANTHROPIC_API_KEY) {
     return NextResponse.json(
       {
         error:
-          "Categorization needs OPENAI_API_KEY in apps/web/.env.local.",
+          "Categorization needs ANTHROPIC_API_KEY in apps/web/.env.local.",
       },
       { status: 503 }
     );
