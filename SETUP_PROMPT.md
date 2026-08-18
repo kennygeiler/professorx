@@ -22,7 +22,7 @@ I just cloned readXlater and need to set it up locally. Here's what I need you t
    - NEXT_PUBLIC_SUPABASE_ANON_KEY (from step 1)
    - SUPABASE_SERVICE_ROLE_KEY (from step 1)
    - API_KEY (from step 4)
-   - LOCAL_USER_ID=local
+   - LOCAL_USER_ID (a UUID — generate with `uuidgen | tr 'A-Z' 'a-z'`)
    - OPENAI_API_KEY (from step 3)
 
 6. **Install dependencies** — run `pnpm install` from the repo root.

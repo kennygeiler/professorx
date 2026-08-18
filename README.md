@@ -395,8 +395,9 @@ SUPABASE_SERVICE_ROLE_KEY=your-service-role-key
 # generate with: openssl rand -hex 32
 API_KEY=your-generated-key
 
-# local user ID (leave as "local" or any string)
-LOCAL_USER_ID=local
+# local user ID — must be a UUID (public.users.id is a UUID column)
+# generate with: uuidgen | tr 'A-Z' 'a-z'
+LOCAL_USER_ID=00000000-0000-0000-0000-000000000001
 
 # openai (for AI categorization + semantic search)
 OPENAI_API_KEY=sk-your-key
