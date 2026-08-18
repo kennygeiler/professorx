@@ -22,6 +22,19 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: "Query too short" }, { status: 400 });
   }
 
+  // Without a key every OpenAI call below fails and the catch swallows it, so
+  // the response would be an empty match list — indistinguishable from "your
+  // library has nothing about this". Say what is actually wrong instead.
+  if (!process.env.OPENAI_API_KEY) {
+    return NextResponse.json(
+      {
+        error:
+          "AI search needs OPENAI_API_KEY in apps/web/.env.local. Keyword search works without it.",
+      },
+      { status: 503 }
+    );
+  }
+
   const supabase = createAdminClient();
 
   // Fetch all tweets for this user (text + id, limited to 500 for performance)

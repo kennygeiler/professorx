@@ -158,19 +158,25 @@ export function LibraryView({ initialTweets, initialCursor }: LibraryViewProps) 
   const hasActiveFilters = query.length > 0 || !!category || timeRange !== "all";
   const [filtersOpen, setFiltersOpen] = useState(true);
   const [aiSearching, setAiSearching] = useState(false);
+  const [aiError, setAiError] = useState("");
   const [showAiSearch, setShowAiSearch] = useState(false);
 
   const runAiSearch = async () => {
     if (!debouncedQuery || debouncedQuery.length < 3) return;
     setAiSearching(true);
     setShowAiSearch(false);
+    setAiError("");
     try {
       const res = await fetch("/api/tweets/ai-search", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ query: debouncedQuery }),
       });
-      if (!res.ok) return;
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}));
+        setAiError(data.error ?? "AI search failed.");
+        return;
+      }
       const data = await res.json();
       const ids: string[] = data.tweetIds ?? [];
       if (ids.length === 0) {
@@ -187,7 +193,7 @@ export function LibraryView({ initialTweets, initialCursor }: LibraryViewProps) 
         setCursor(null);
       }
     } catch {
-      // Silently handle
+      setAiError("AI search failed.");
     } finally {
       setAiSearching(false);
     }
@@ -338,6 +344,10 @@ export function LibraryView({ initialTweets, initialCursor }: LibraryViewProps) 
               )}
             </span>
           </button>
+          )}
+
+          {aiError && (
+            <p className="text-xs text-amber-400">{aiError}</p>
           )}
 
           {/* Tweet count + filter toggle */}
