@@ -57,10 +57,16 @@ unrelated app and no tweets arrive.
 
 ## AI features
 
-`OPENAI_API_KEY` in `apps/web/.env.local` is empty. Browsing, filtering, and
-keyword search work without it. AI categorization (`/api/categorize`), AI search
-(`/api/tweets/ai-search`), and selector healing (`/api/selectors/heal`) need a
-key from platform.openai.com.
+The AI routes run on Claude via `@anthropic-ai/sdk` and need `ANTHROPIC_API_KEY`
+in `apps/web/.env.local` — get one from console.anthropic.com/settings/keys.
+Without it, AI categorization (`/api/categorize`), AI search
+(`/api/tweets/ai-search`), and selector healing (`/api/selectors/heal`) return
+503 with the reason. Browsing, filtering, and keyword search work without a key.
+
+The batch routes run at `low` effort: assigning known categories and matching a
+search query are scoped classification tasks, and it keeps categorizing a large
+library affordable. Categorization handles 50 tweets per request, about 40
+seconds a round.
 
 ## Migrations 006 and 007
 
@@ -83,19 +89,20 @@ also carries `users_id_fkey` — the same bug applies there.
 
 ## `LOCAL_USER_ID` must be a UUID
 
-`public.users.id` is a `UUID` column. The README and `SETUP_PROMPT.md` both say
-`LOCAL_USER_ID=local`, which fails on insert with `invalid input syntax for type
-uuid`. `.env.local` uses a generated UUID instead. Those docs still need
-correcting.
+`public.users.id` is a `UUID` column, so the `LOCAL_USER_ID=local` the docs used
+to recommend fails on insert with `invalid input syntax for type uuid`. The
+README, `SETUP_PROMPT.md`, and `.env.example` now all carry a UUID.
 
 ## Verified
 
 - `supabase start` applies migrations 001–007 clean.
 - `POST /api/tweets/ingest` with the `API_KEY` bearer token inserts a row.
-- The inserted tweet renders in the library at http://localhost:3100.
-- `GET /api/tweets/search?q=...` and `GET /api/tweets` return it.
-- The smoke-test row was deleted afterward; the database is empty and ready for
-  a real sync.
+- The extension's DOM scrape against x.com: 800 tweets synced from a real likes
+  page, rendering in the library at http://localhost:3100.
+- `GET /api/tweets/search?q=...` and `GET /api/tweets` return matches.
+- `POST /api/tweets/ai-search` returns semantic matches (48 for "film and
+  movies", against 33 from keyword search).
+- `POST /api/categorize` categorizes 50 tweets per call with no batch errors.
 
-Not verified: the extension's actual DOM scrape against x.com (needs a logged-in
-browser session), and every OpenAI-backed route.
+Not verified: `/api/selectors/heal`, which only runs when x.com changes its DOM
+and the scraper's selectors stop matching.

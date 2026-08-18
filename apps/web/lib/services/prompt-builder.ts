@@ -1,7 +1,7 @@
 import type { AiCorrection, AiCategoryRule } from '@shared/types/ai-memory';
 
 /**
- * Builds the categorization prompt for GPT-4o-mini.
+ * Builds the categorization prompt for Claude.
  *
  * When categories exist, the AI categorizes tweets into those categories.
  * When no categories exist, the AI suggests 5-7 initial categories based on tweet content.

@@ -78,7 +78,7 @@ readXlater solves both problems. a chrome extension scrolls your Twitter likes p
    │                                                  │         │                │
    │                                                  │         ▼                │
    │                                                  │  ┌─────────────┐        │
-   │                                                  │  │ GPT-4o-mini │        │
+   │                                                  │  │  Claude     │        │
    │                                                  │  │ (5 batches  │        │
    │                                                  │  │  of 10)     │        │
    │                                                  │  └──────┬──────┘        │
@@ -100,7 +100,7 @@ readXlater solves both problems. a chrome extension scrolls your Twitter likes p
    │                                                  │                          │
    │  search "find movie tweets"                      │                          │
    │──────────────────────────────────────────────────▶│                          │
-   │                                                  │  GPT-4o-mini reads 500   │
+   │                                                  │  Claude reads 500        │
    │                                                  │  tweets, returns matches │
    │  results                                         │                          │
    │◀─────────────────────────────────────────────────│                          │
@@ -111,7 +111,7 @@ three pieces. the extension collects tweets. the backend stores and categorizes 
 | layer | what it does | how |
 |-------|-------------|-----|
 | **chrome extension** | scrolls your likes/bookmarks, extracts tweets from DOM, sends to backend | manifest v3 content script, auto-scroll, zero API |
-| **backend** | stores tweets, runs AI categorization, handles search | next.js 15, supabase (postgres), GPT-4o-mini |
+| **backend** | stores tweets, runs AI categorization, handles search | next.js 15, supabase (postgres), Claude |
 | **frontend** | search, filter, browse your organized tweet library | dark mode, mobile-responsive, twitter blue |
 
 the extension opens `x.com/{yourhandle}/likes` in a foreground tab. it scrolls to the bottom repeatedly, extracting tweet data from `article[data-testid="tweet"]` elements as they render. batches of 50 tweets get POSTed to your local backend. when no new tweets appear after several scrolls, it stops and redirects you to your library.
@@ -231,7 +231,7 @@ when the inspector finds broken selectors, the extension:
 
 1. captures a DOM snapshot of the first tweet article element (raw HTML)
 2. sends the broken selectors + DOM snapshot to the backend `/api/selectors/heal` endpoint
-3. GPT-4o-mini analyzes the DOM structure and generates updated CSS selectors
+3. Claude analyzes the DOM structure and generates updated CSS selectors
 4. extension saves the fixed selectors to `chrome.storage`
 5. next sync uses the healed selectors automatically
 
@@ -250,7 +250,7 @@ two search modes:
 
 **full-text search** — PostgreSQL `tsvector` across tweet text + author names. triggers at 3 characters with 200ms debounce. `@username` queries use `ilike` for exact author matching.
 
-**AI semantic search** — type a natural language query like "find tweets that are sexy" or "movie files" and click "Search with AI." GPT-4o-mini reads your tweets in batches of 50 and returns the ones that semantically match your intent, even if the exact words aren't there.
+**AI semantic search** — type a natural language query like "find tweets that are sexy" or "movie files" and click "Search with AI." Claude reads your tweets in batches of 50 and returns the ones that semantically match your intent, even if the exact words aren't there.
 
 ![ai search](assets/screenshots/ai-search.png)
 *AI semantic search — "find tweets that are hilarious" returns comedy tweets by meaning, not keywords. the AI reads your tweets and matches intent.*
@@ -274,7 +274,7 @@ this is the core of readXlater. here's exactly how it works:
 
 1. **fetch uncategorized tweets** — pulls 50 uncategorized tweets from the database per round (chunked queries to avoid URL limits)
 2. **build the prompt** — includes existing category names, recent user corrections, and category rules. tells the AI: "assign 1-2 categories. use existing ones or create new descriptive names. every tweet must get at least 1 category."
-3. **send to GPT-4o-mini** — processes in batches of 10 tweets per API call (5 calls per round). temperature 0.3 for consistency.
+3. **send to Claude** — processes in batches of 10 tweets per API call (5 calls per round), at low effort since assigning known categories is scoped work.
 4. **parse and insert** — handles every response format the AI might return (array, string, wrapped object, markdown fences). auto-creates new categories with colors from an 18-color palette.
 5. **loop until done** — client-side loop runs up to 50 rounds (~2,500 tweets max per click). shows live progress: round number, count, remaining.
 
@@ -329,7 +329,7 @@ the result: the more you use it, the better it gets. correction on day 1 prevent
 | feature | description |
 |---------|-------------|
 | **extension sync** | auto-scroll DOM scraping, zero API cost |
-| **AI categorization** | GPT-4o-mini, 1-2 categories per tweet, auto-creates new ones |
+| **AI categorization** | Claude, 1-2 categories per tweet, auto-creates new ones |
 | **AI learning** | corrections + rules feed back into prompts, compounds over time |
 | **full-text search** | PostgreSQL FTS on text + author names |
 | **AI semantic search** | "find tweets about movies" — searches by meaning |
@@ -399,8 +399,8 @@ API_KEY=your-generated-key
 # generate with: uuidgen | tr 'A-Z' 'a-z'
 LOCAL_USER_ID=00000000-0000-0000-0000-000000000001
 
-# openai (for AI categorization + semantic search)
-OPENAI_API_KEY=sk-your-key
+# anthropic (for AI categorization + semantic search)
+ANTHROPIC_API_KEY=sk-ant-your-key
 
 # optional: set to "true" on vercel to show landing page instead of app
 # DEMO_MODE=true
@@ -416,7 +416,7 @@ readXlater is designed to run locally. but you can deploy it if you want:
 
 1. push to github
 2. import in vercel
-3. set `DEMO_MODE=true` + supabase + openai env vars
+3. set `DEMO_MODE=true` + supabase + anthropic env vars
 4. the vercel URL shows a landing page, not the app
 
 ### local (the real thing)
@@ -466,13 +466,13 @@ everything runs on your own infrastructure with your own keys. nothing is shared
 | what | where to get it | cost |
 |------|----------------|------|
 | **supabase** | [supabase.com](https://supabase.com) | free tier works |
-| **openai** | [platform.openai.com](https://platform.openai.com) | ~$0.01 per 100 tweets categorized (gpt-4o-mini) |
+| **anthropic** | [console.anthropic.com](https://console.anthropic.com) | pay-as-you-go, per token |
 | **vercel** (optional) | [vercel.com](https://vercel.com) | free tier works |
 
 steps:
 1. fork this repo
 2. create a supabase project, run migrations
-3. get an openai API key
+3. get an anthropic API key
 4. copy `apps/web/.env.example` to `.env.local`, fill in your keys
 5. generate an API_KEY: `openssl rand -hex 32`
 6. `pnpm install && pnpm dev`
@@ -480,7 +480,7 @@ steps:
 8. load unpacked in chrome, enter your @handle + API_KEY
 9. sync and categorize
 
-no data leaves your deployment. tweets are stored in your supabase. AI calls go to your openai key. the extension talks only to your backend.
+no data leaves your deployment. tweets are stored in your supabase. AI calls go to your anthropic key. the extension talks only to your backend.
 
 ## contributing
 

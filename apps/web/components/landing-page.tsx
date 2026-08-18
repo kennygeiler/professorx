@@ -55,7 +55,7 @@ export function LandingPage() {
               {
                 step: "2",
                 title: "AI categorizes",
-                desc: "GPT-4o-mini reads each tweet and assigns 1-2 categories. new categories are created automatically as it discovers topics.",
+                desc: "Claude reads each tweet and assigns 1-2 categories. new categories are created automatically as it discovers topics.",
               },
               {
                 step: "3",
@@ -132,13 +132,13 @@ export function LandingPage() {
           <p className="mx-auto max-w-lg text-sm leading-relaxed text-zinc-400">
             readXlater is a personal tool. you run it on your machine, with your own keys,
             for yourself. no accounts, no shared servers, no data leaving your setup.
-            fork the repo, set up Supabase + OpenAI, and you own the whole thing.
+            fork the repo, set up Supabase + Anthropic, and you own the whole thing.
             zero Twitter API costs — the extension reads the same page you see in your browser.
           </p>
           <div className="mt-6 inline-flex items-center gap-4 rounded-lg border border-zinc-800 bg-zinc-900/50 px-5 py-3 text-xs text-zinc-500">
             <span>Supabase (free)</span>
             <span className="text-zinc-700">+</span>
-            <span>OpenAI (~$0.01/100 tweets)</span>
+            <span>Anthropic (pay-as-you-go)</span>
             <span className="text-zinc-700">=</span>
             <span className="text-[#1d9bf0]">that&apos;s it</span>
           </div>
